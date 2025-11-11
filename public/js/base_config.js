@@ -1,3 +1,4 @@
+// File: public/js/base_config.js
 (function () {
   function normalise(base) {
     if (!base) {

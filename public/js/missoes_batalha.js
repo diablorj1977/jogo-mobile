@@ -1,3 +1,4 @@
+// File: public/js/missoes_batalha.js
 const missionsListElement = document.getElementById('missions-list');
 const missionTypeFilter = document.getElementById('mission-type-filter');
 const missionState = {};
@@ -38,7 +39,7 @@ async function loadMissions() {
   navigator.geolocation.getCurrentPosition(async (position) => {
     const { latitude, longitude } = position.coords;
     try {
-      const data = await window.apiFetch(`/api/missions_list.php?lat=${latitude}&lng=${longitude}&km=10`);
+      const data = await window.apiFetch(`missions_list.php?lat=${latitude}&lng=${longitude}&km=10`);
       missionsListElement.innerHTML = '';
       const filter = getFilter();
       data.missions
@@ -64,7 +65,7 @@ function startMission(mission, element) {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
       };
-      const data = await window.apiFetch('/api/mission_start.php', {
+      const data = await window.apiFetch('mission_start.php', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -97,7 +98,7 @@ async function finishMission(mission, element) {
     }
   }
   try {
-    const data = await window.apiFetch('/api/mission_finish.php', {
+    const data = await window.apiFetch('mission_finish.php', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

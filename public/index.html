@@ -1,18 +1,22 @@
+<!-- File: public/index.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ecobots HQ</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/bulma.min.css">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="has-background-light">
   <section class="section">
     <div class="container">
       <h1 class="title has-text-centered">Ecobots</h1>
       <p class="subtitle has-text-centered">Entre na rede e ajude a manter o planeta limpo.</p>
+      <div class="has-text-centered mb-4">
+        <a id="hq-link" class="button is-link is-light" target="_blank" rel="noopener">Visitar HQ</a>
+      </div>
       <div class="columns">
         <div class="column">
           <div class="box">
@@ -69,12 +73,11 @@
           </div>
         </div>
       </div>
-      <div class="has-text-centered">
-        <a id="hq-link" class="button is-text" target="_blank" rel="noopener">Visitar HQ</a>
-      </div>
       <p class="has-text-centered" id="status-message"></p>
     </div>
   </section>
-  <script src="/js/common_prelogin.js"></script>
+  <script src="../api/init_config.php?format=js"></script>
+  <script src="js/base_config.js"></script>
+  <script src="js/common_prelogin.js"></script>
 </body>
 </html>

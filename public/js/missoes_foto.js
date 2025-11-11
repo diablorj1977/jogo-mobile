@@ -1,3 +1,4 @@
+// File: public/js/missoes_foto.js
 window.missionHandlers = window.missionHandlers || {};
 
 window.missionHandlers.FOTO = {
@@ -15,7 +16,7 @@ window.missionHandlers.FOTO = {
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = reader.result.split(',')[1];
-          const upload = await window.apiFetch('/api/mission_photo_upload.php', {
+          const upload = await window.apiFetch('mission_photo_upload.php', {
             method: 'POST',
             body: JSON.stringify({
               run_id: runId,

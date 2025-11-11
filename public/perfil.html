@@ -1,0 +1,66 @@
+<!-- File: public/perfil.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecobots — Perfil</title>
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <nav class="navbar is-light" role="navigation">
+    <div class="navbar-brand"><a class="navbar-item" href="home.html">Ecobots</a></div>
+    <div class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item" href="missoes.html">Missões</a>
+        <a class="navbar-item" href="inventario.html">Inventário</a>
+        <a class="navbar-item" href="caminhos.html">Caminhos</a>
+        <a class="navbar-item is-active" href="perfil.html">Perfil</a>
+      </div>
+      <div class="navbar-end">
+        <a class="navbar-item" href="#" id="logout-link">Sair</a>
+      </div>
+    </div>
+  </nav>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">Perfil</h1>
+      <div class="box">
+        <p><strong>E-mail:</strong> <span id="profile-email"></span></p>
+        <p><strong>Nickname:</strong> <span id="profile-nickname"></span></p>
+        <p><strong>Nível:</strong> <span id="profile-level"></span></p>
+        <p><strong>XP:</strong> <span id="profile-xp"></span></p>
+        <p><strong>Ecobot:</strong> <span id="profile-ecobot"></span></p>
+      </div>
+      <div class="box">
+        <h2 class="title is-5">Preferências</h2>
+        <div class="field">
+          <label class="label" for="nickname-input">Nickname</label>
+          <div class="control">
+            <input class="input" id="nickname-input" type="text" placeholder="Digite um apelido">
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="geofence-select">Raio padrão</label>
+          <div class="control">
+            <div class="select">
+              <select id="geofence-select">
+                <option value="3">3 km</option>
+                <option value="10">10 km</option>
+                <option value="50">50 km</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="button is-primary" id="save-geofence">Salvar</button>
+        <p class="help" id="profile-status"></p>
+      </div>
+    </div>
+  </section>
+  <script src="../api/init_config.php?format=js"></script>
+  <script src="js/base_config.js"></script>
+  <script src="js/common_app.js"></script>
+  <script src="js/perfil.js"></script>
+</body>
+</html>

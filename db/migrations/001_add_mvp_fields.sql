@@ -1,0 +1,4 @@
+-- File: db/migrations/001_add_mvp_fields.sql
+-- A estrutura fornecida em base-de-dados.sql já contém os campos necessários
+-- para o MVP (xp/level em users, down_until em ecobots, colunas de prova em
+-- mission_runs etc.). Nenhum ALTER TABLE adicional é requerido nesta fase.

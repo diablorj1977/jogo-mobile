@@ -1,3 +1,4 @@
+// File: public/js/home.js
 const mapElement = document.getElementById('map');
 const missionsContainer = document.getElementById('missions-container');
 const radiusSelect = document.getElementById('radius-select');
@@ -24,7 +25,7 @@ function clearMarkers() {
 async function loadMissions(lat, lng) {
   const km = radiusSelect.value || '3';
   try {
-    const data = await window.apiFetch(`/api/missions_list.php?lat=${lat}&lng=${lng}&km=${km}`);
+    const data = await window.apiFetch(`missions_list.php?lat=${lat}&lng=${lng}&km=${km}`);
     missionsContainer.innerHTML = '';
     clearMarkers();
     data.missions.forEach((mission) => {
@@ -82,7 +83,7 @@ if (encounterButton) {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        const data = await window.apiFetch('/api/encounter_scan.php', {
+        const data = await window.apiFetch('encounter_scan.php', {
           method: 'POST',
           body: JSON.stringify(payload),
         });

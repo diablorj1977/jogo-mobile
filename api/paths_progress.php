@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/paths_progress.php
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/response.php';
 require_once __DIR__ . '/core/db.php';

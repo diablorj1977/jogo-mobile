@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecobots HQ</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="has-background-light">
+  <section class="section">
+    <div class="container">
+      <h1 class="title has-text-centered">Ecobots</h1>
+      <p class="subtitle has-text-centered">Entre na rede e ajude a manter o planeta limpo.</p>
+      <div class="columns">
+        <div class="column">
+          <div class="box">
+            <h2 class="title is-5">Entrar</h2>
+            <form id="login-form">
+              <div class="field">
+                <label class="label">E-mail</label>
+                <div class="control">
+                  <input class="input" type="email" name="email" required>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">Senha</label>
+                <div class="control">
+                  <input class="input" type="password" name="password" required>
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <button class="button is-link is-fullwidth" type="submit">Entrar</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="column">
+          <div class="box">
+            <h2 class="title is-5">Criar conta</h2>
+            <form id="register-form">
+              <div class="field">
+                <label class="label">E-mail</label>
+                <div class="control">
+                  <input class="input" type="email" name="email" required>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">Nickname</label>
+                <div class="control">
+                  <input class="input" type="text" name="nickname" placeholder="Opcional">
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">Senha</label>
+                <div class="control">
+                  <input class="input" type="password" name="password" minlength="6" required>
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <button class="button is-success is-fullwidth" type="submit">Registrar</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="has-text-centered">
+        <a id="hq-link" class="button is-text" target="_blank" rel="noopener">Visitar HQ</a>
+      </div>
+      <p class="has-text-centered" id="status-message"></p>
+    </div>
+  </section>
+  <script src="../api/init_config.php?format=js"></script>
+  <script src="js/base_config.js"></script>
+  <script src="js/common_prelogin.js"></script>
+</body>
+</html>

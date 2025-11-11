@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecobots — Missões</title>
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <nav class="navbar is-light" role="navigation">
+    <div class="navbar-brand"><a class="navbar-item" href="home.html">Ecobots</a></div>
+    <div class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item is-active" href="missoes.html">Missões</a>
+        <a class="navbar-item" href="inventario.html">Inventário</a>
+        <a class="navbar-item" href="caminhos.html">Caminhos</a>
+        <a class="navbar-item" href="perfil.html">Perfil</a>
+      </div>
+      <div class="navbar-end">
+        <a class="navbar-item" href="#" id="logout-link">Sair</a>
+      </div>
+    </div>
+  </nav>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">Missões</h1>
+      <div class="field">
+        <label class="label">Tipo</label>
+        <div class="control">
+          <div class="select">
+            <select id="mission-type-filter">
+              <option value="">Todas</option>
+              <option value="BATALHA">Batalha</option>
+              <option value="FOTO">Foto</option>
+              <option value="SCAN">QR Code</option>
+              <option value="CORRIDA">Corrida</option>
+              <option value="P2P">Ponto a Ponto</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <ul id="missions-list"></ul>
+    </div>
+  </section>
+  <script src="../api/init_config.php?format=js"></script>
+  <script src="js/base_config.js"></script>
+  <script src="js/common_app.js"></script>
+  <script src="js/missoes_batalha.js"></script>
+  <script src="js/missoes_corrida.js"></script>
+  <script src="js/missoes_foto.js"></script>
+  <script src="js/missoes_qr.js"></script>
+  <script src="js/missoes_p2p.js"></script>
+</body>
+</html>

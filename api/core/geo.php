@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/core/geo.php
 require_once __DIR__ . '/../init_config.php';
 
 function haversine_distance(float $latFrom, float $lonFrom, float $latTo, float $lonTo): float

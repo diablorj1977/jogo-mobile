@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/inventory_equip.php
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/response.php';
 require_once __DIR__ . '/core/db.php';

@@ -1,34 +1,20 @@
-const base = window.EcobotsBase || {};
-
 function getToken() {
   return localStorage.getItem('ecobots_token');
 }
 
-function resolveApiUrl(path) {
-  if (base.toApi) {
-    return base.toApi(path);
-  }
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  const cleaned = path.replace(/^\/+/, '');
-  return `/api/${cleaned}`;
-}
-
-async function apiFetch(path, options = {}) {
+async function apiFetch(url, options = {}) {
   const token = getToken();
   const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await fetch(resolveApiUrl(path || ''), Object.assign({}, options, { headers }));
+  const response = await fetch(url, Object.assign({}, options, { headers }));
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = data.error || 'Erro inesperado';
     if (response.status === 401) {
       localStorage.removeItem('ecobots_token');
-      const redirectUrl = base.toHtml ? base.toHtml('index.html') : 'index.html';
-      window.location.href = redirectUrl;
+      window.location.href = 'index.html';
     }
     throw new Error(message);
   }
@@ -37,8 +23,7 @@ async function apiFetch(path, options = {}) {
 
 function requireAuth() {
   if (!getToken()) {
-    const redirectUrl = base.toHtml ? base.toHtml('index.html') : 'index.html';
-    window.location.href = redirectUrl;
+    window.location.href = 'index.html';
   }
 }
 
@@ -49,14 +34,12 @@ if (logoutLink) {
   logoutLink.addEventListener('click', (event) => {
     event.preventDefault();
     localStorage.removeItem('ecobots_token');
-    const redirectUrl = base.toHtml ? base.toHtml('index.html') : 'index.html';
-    window.location.href = redirectUrl;
+    window.location.href = 'index.html';
   });
 }
 
 if ('serviceWorker' in navigator) {
-  const swUrl = base.toHtml ? base.toHtml('sw.js') : '/sw.js';
-  navigator.serviceWorker.register(swUrl).catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 window.apiFetch = apiFetch;

@@ -3,8 +3,8 @@ const container = document.getElementById('paths-container');
 async function loadPaths() {
   try {
     const [list, progress] = await Promise.all([
-      window.apiFetch('paths_list.php'),
-      window.apiFetch('paths_progress.php'),
+      window.apiFetch('/api/paths_list.php'),
+      window.apiFetch('/api/paths_progress.php'),
     ]);
     container.innerHTML = '';
     const progressMap = {};

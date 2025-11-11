@@ -10,7 +10,7 @@ const statusEl = document.getElementById('profile-status');
 
 async function loadProfile() {
   try {
-    const data = await window.apiFetch('me.php');
+    const data = await window.apiFetch('/api/me.php');
     emailEl.textContent = data.email;
     nicknameEl.textContent = data.nickname || '-';
     levelEl.textContent = data.level;
@@ -36,7 +36,7 @@ if (saveButton) {
       if (nicknameInput && nicknameInput.value.trim() !== '') {
         payload.nickname = nicknameInput.value.trim();
       }
-      await window.apiFetch('profile_update.php', {
+      await window.apiFetch('/api/profile_update.php', {
         method: 'POST',
         body: JSON.stringify(payload),
       });

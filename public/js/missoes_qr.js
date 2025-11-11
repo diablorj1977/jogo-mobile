@@ -6,7 +6,7 @@ window.missionHandlers.SCAN = {
     if (!code) {
       throw new Error('Código obrigatório');
     }
-    await window.apiFetch('mission_qr_submit.php', {
+    await window.apiFetch('/api/mission_qr_submit.php', {
       method: 'POST',
       body: JSON.stringify({ run_id: runId, code }),
     });

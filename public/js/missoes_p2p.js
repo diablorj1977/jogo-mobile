@@ -11,7 +11,7 @@ window.missionHandlers.P2P = {
     }
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
-        await window.apiFetch('mission_p2p_touch.php', {
+        await window.apiFetch('/api/mission_p2p_touch.php', {
           method: 'POST',
           body: JSON.stringify({
             run_id: runId,

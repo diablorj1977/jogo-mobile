@@ -1,0 +1,8 @@
+body { min-height: 100vh; }
+.map { height: 400px; margin-bottom: 1.5rem; }
+.inventory-list { list-style: none; padding: 0; }
+.inventory-list li { border-bottom: 1px solid #ddd; padding: 0.5rem 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.paths .box { margin-bottom: 1rem; }
+.mt-3 { margin-top: 1rem; }
+.buttons { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.mr-2 { margin-right: 0.5rem; }

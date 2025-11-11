@@ -3,7 +3,32 @@ const inventoryList = document.getElementById('inventory-list');
 const slotsContainer = document.getElementById('slots');
 const ecobotStatsContainer = document.getElementById('ecobot-stats');
 
-const slots = ['carcass', 'wpn1', 'wpn2', 'mod1', 'mod2'];
+const defaultSlotConfig = {
+  available_slots: ['carcass', 'wpn1', 'wpn2', 'mod1', 'mod2'],
+  weapon_slots: 2,
+  module_slots: 2,
+};
+let slotConfig = Object.assign({}, defaultSlotConfig);
+
+function formatSlotLabel(slot) {
+  const labels = {
+    carcass: 'Carcaça',
+    wpn1: 'Arma 1',
+    wpn2: 'Arma 2',
+    mod1: 'Módulo 1',
+    mod2: 'Módulo 2',
+  };
+  if (labels[slot]) {
+    return labels[slot];
+  }
+  if (/^wpn\d+$/i.test(slot)) {
+    return `Arma ${slot.replace(/[^0-9]/g, '')}`;
+  }
+  if (/^mod\d+$/i.test(slot)) {
+    return `Módulo ${slot.replace(/[^0-9]/g, '')}`;
+  }
+  return slot.toUpperCase();
+}
 
 function formatStatLabel(key) {
   const labels = {
@@ -44,10 +69,19 @@ function buildResistanceBadges(resistances) {
 }
 
 function getSlotsForKind(kind) {
-  if (kind === 'CARCASS') return ['carcass'];
-  if (kind === 'WEAPON') return ['wpn1', 'wpn2'];
-  if (kind === 'MODULE') return ['mod1', 'mod2'];
-  return slots;
+  const available = Array.isArray(slotConfig.available_slots)
+    ? slotConfig.available_slots
+    : defaultSlotConfig.available_slots;
+  if (kind === 'CARCASS') {
+    return available.includes('carcass') ? ['carcass'] : [];
+  }
+  if (kind === 'WEAPON') {
+    return available.filter((slot) => slot.startsWith('wpn'));
+  }
+  if (kind === 'MODULE') {
+    return available.filter((slot) => slot.startsWith('mod'));
+  }
+  return available;
 }
 
 function renderEcobotStats(ecobot) {
@@ -98,12 +132,15 @@ function renderEcobotStats(ecobot) {
 
 function renderSlots(equipped, itemsMap) {
   slotsContainer.innerHTML = '';
-  slots.forEach((slot) => {
+  const available = Array.isArray(slotConfig.available_slots)
+    ? slotConfig.available_slots
+    : defaultSlotConfig.available_slots;
+  available.forEach((slot) => {
     const wrapper = document.createElement('div');
     wrapper.className = 'inventory-slot-card box';
     const equippedId = equipped[slot];
     const header = document.createElement('strong');
-    header.textContent = slot.toUpperCase();
+    header.textContent = formatSlotLabel(slot);
     wrapper.appendChild(header);
 
     if (equippedId && itemsMap[equippedId]) {
@@ -127,7 +164,7 @@ function renderSlots(equipped, itemsMap) {
       wrapper.appendChild(body);
       const btn = document.createElement('button');
       btn.className = 'button is-small is-text';
-      btn.textContent = 'Remover';
+      btn.textContent = 'Desequipar';
       btn.addEventListener('click', async () => {
         await window.apiFetch('inventory_unequip.php', {
           method: 'POST',
@@ -212,19 +249,55 @@ function renderInventory(items, equipped) {
     if (slotName) {
       const badge = document.createElement('span');
       badge.className = 'tag is-success';
-      badge.textContent = `Equipado (${slotName.toUpperCase()})`;
+      badge.textContent = `Equipado (${formatSlotLabel(slotName)})`;
       actions.appendChild(badge);
     }
+
+    const allowedSlots = getSlotsForKind(item.kind);
+    let slotSelector = null;
+
+    if (allowedSlots.length > 1) {
+      const selectWrapper = document.createElement('div');
+      selectWrapper.className = 'select is-small';
+      const selectEl = document.createElement('select');
+      allowedSlots.forEach((slot) => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = formatSlotLabel(slot);
+        if (slotName === slot) {
+          option.selected = true;
+        }
+        selectEl.appendChild(option);
+      });
+      if (slotName && allowedSlots.includes(slotName)) {
+        selectEl.value = slotName;
+      }
+      selectWrapper.appendChild(selectEl);
+      actions.appendChild(selectWrapper);
+      slotSelector = selectEl;
+    } else if (allowedSlots.length === 1) {
+      const singleSlot = allowedSlots[0];
+      const label = document.createElement('span');
+      label.className = 'tag is-light';
+      label.textContent = formatSlotLabel(singleSlot);
+      actions.appendChild(label);
+      slotSelector = { value: singleSlot };
+    }
+
     const equipBtn = document.createElement('button');
     equipBtn.className = 'button is-small is-link';
     equipBtn.textContent = 'Equipar';
+    if (!allowedSlots.length) {
+      equipBtn.disabled = true;
+      equipBtn.textContent = 'Sem slot disponível';
+    }
     equipBtn.addEventListener('click', async () => {
-      const allowedSlots = getSlotsForKind(item.kind);
-      let chosenSlot = allowedSlots.length === 1 ? allowedSlots[0] : prompt(`Escolha o slot (${allowedSlots.join(', ')}):`, allowedSlots[0]);
-      if (!chosenSlot) return;
-      chosenSlot = chosenSlot.trim();
-      if (!allowedSlots.includes(chosenSlot)) {
-        alert('Slot inválido para este item.');
+      if (!allowedSlots.length) {
+        return;
+      }
+      const chosenSlot = slotSelector ? slotSelector.value : allowedSlots[0];
+      if (!chosenSlot || !allowedSlots.includes(chosenSlot)) {
+        alert('Selecione um slot válido.');
         return;
       }
       await window.apiFetch('inventory_equip.php', {
@@ -244,6 +317,11 @@ function renderInventory(items, equipped) {
 async function loadInventory() {
   try {
     const data = await window.apiFetch('inventory_list.php');
+    const incomingConfig = data.slot_config || {};
+    slotConfig = Object.assign({}, defaultSlotConfig, incomingConfig);
+    if (!Array.isArray(slotConfig.available_slots) || !slotConfig.available_slots.length) {
+      slotConfig.available_slots = defaultSlotConfig.available_slots.slice();
+    }
     renderEcobotStats(data.ecobot);
     renderInventory(data.items || [], data.equipped || {});
   } catch (error) {

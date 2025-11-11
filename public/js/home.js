@@ -1,14 +1,45 @@
 // File: public/js/home.js
 const mapElement = document.getElementById('map');
 const missionsContainer = document.getElementById('missions-container');
-const radiusSelect = document.getElementById('radius-select');
 const refreshButton = document.getElementById('refresh-missions');
 const encounterButton = document.getElementById('scan-encounter');
 const encounterStatus = document.getElementById('encounter-status');
+const radiusInfo = document.getElementById('radius-info');
 let map;
 let userMarker;
 let missionMarkers = [];
 const missionIconCache = {};
+let currentRadiusKm = null;
+let radiusPromise = null;
+
+function updateRadiusInfo(km, isError = false) {
+  if (!radiusInfo) return;
+  radiusInfo.textContent = isError ? km : `Raio atual: ${km} km`;
+  radiusInfo.classList.toggle('is-danger', isError);
+  radiusInfo.classList.toggle('is-warning', isError);
+}
+
+async function ensureRadius() {
+  if (currentRadiusKm !== null) {
+    return currentRadiusKm;
+  }
+  if (!radiusPromise) {
+    radiusPromise = window
+      .apiFetch('me.php')
+      .then((profile) => {
+        const km = parseInt(profile.geofence_km, 10);
+        currentRadiusKm = Number.isNaN(km) ? 3 : km;
+        updateRadiusInfo(currentRadiusKm);
+        return currentRadiusKm;
+      })
+      .catch((error) => {
+        currentRadiusKm = 3;
+        updateRadiusInfo(error.message || 'Falha ao obter raio', true);
+        throw error;
+      });
+  }
+  return radiusPromise.catch(() => currentRadiusKm);
+}
 
 function getMissionIcon(url) {
   const fallback = (window.APP_CONFIG && window.APP_CONFIG.default_mission_icon) || null;
@@ -42,7 +73,7 @@ function clearMarkers() {
 }
 
 async function loadMissions(lat, lng) {
-  const km = radiusSelect.value || '3';
+  const km = await ensureRadius().catch(() => currentRadiusKm || 3);
   try {
     const data = await window.apiFetch(`missions_list.php?lat=${lat}&lng=${lng}&km=${km}`);
     missionsContainer.innerHTML = '';
@@ -73,6 +104,7 @@ async function loadMissions(lat, lng) {
 }
 
 function locateAndLoad() {
+  ensureRadius().catch(() => {});
   if (!navigator.geolocation) {
     missionsContainer.innerHTML = '<li>Geolocalização indisponível</li>';
     return;
@@ -96,10 +128,6 @@ function locateAndLoad() {
 
 if (refreshButton) {
   refreshButton.addEventListener('click', () => locateAndLoad());
-}
-
-if (radiusSelect) {
-  radiusSelect.addEventListener('change', () => locateAndLoad());
 }
 
 if (encounterButton) {

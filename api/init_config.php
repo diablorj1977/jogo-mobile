@@ -6,10 +6,10 @@ if (!defined('DB_HOST')) {
     define('DB_HOST', getenv('ECOBOTS_DB_HOST') ?: 'localhost');
 }
 if (!defined('DB_NAME')) {
-    define('DB_NAME', getenv('ECOBOTS_DB_NAME') ?: 'reforc07_ECOBOTS');
+    define('DB_NAME', getenv('ECOBOTS_DB_NAME') ?: 'ecobots');
 }
 if (!defined('DB_USER')) {
-    define('DB_USER', getenv('ECOBOTS_DB_USER') ?: 'reforc07_ECOBOTS');
+    define('DB_USER', getenv('ECOBOTS_DB_USER') ?: 'ecobots');
 }
 if (!defined('DB_PASS')) {
     define('DB_PASS', getenv('ECOBOTS_DB_PASS') ?: 'secret');

@@ -8,6 +8,9 @@ const nicknameInput = document.getElementById('nickname-input');
 const geofenceSelect = document.getElementById('geofence-select');
 const saveButton = document.getElementById('save-geofence');
 const statusEl = document.getElementById('profile-status');
+const currentPasswordInput = document.getElementById('current-password');
+const newPasswordInput = document.getElementById('new-password');
+const confirmPasswordInput = document.getElementById('confirm-password');
 
 async function loadProfile() {
   try {
@@ -23,6 +26,12 @@ async function loadProfile() {
     if (geofenceSelect) {
       geofenceSelect.value = String(data.geofence_km);
     }
+    if (currentPasswordInput) currentPasswordInput.value = '';
+    if (newPasswordInput) newPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
+    if (statusEl) {
+      statusEl.textContent = '';
+    }
   } catch (error) {
     statusEl.textContent = error.message;
   }
@@ -36,6 +45,25 @@ if (saveButton) {
       };
       if (nicknameInput && nicknameInput.value.trim() !== '') {
         payload.nickname = nicknameInput.value.trim();
+      }
+      const newPassword = newPasswordInput ? newPasswordInput.value : '';
+      const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : '';
+      const currentPassword = currentPasswordInput ? currentPasswordInput.value : '';
+      if (newPassword || confirmPassword || currentPassword) {
+        if (!newPassword) {
+          statusEl.textContent = 'Informe a nova senha.';
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          statusEl.textContent = 'As senhas não coincidem.';
+          return;
+        }
+        if (!currentPassword) {
+          statusEl.textContent = 'Informe a senha atual para confirmar.';
+          return;
+        }
+        payload.new_password = newPassword;
+        payload.current_password = currentPassword;
       }
       await window.apiFetch('profile_update.php', {
         method: 'POST',

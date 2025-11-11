@@ -17,7 +17,8 @@ $stmt = $pdo->prepare(
             it.base_hp, it.base_atk, it.base_def, it.base_speed, it.base_focus, it.energy_max AS template_energy_max,
             it.res_kinetic, it.res_thermal, it.res_electric, it.res_chemical, it.res_emp,
             it.dmg_min, it.dmg_max, it.dmg_type, it.energy_cost, it.accuracy, it.crit_bonus,
-            it.status_code, it.status_chance, it.module_kind, it.module_value, it.module_duration, it.module_cooldown
+            it.status_code, it.status_chance, it.module_kind, it.module_value, it.module_duration, it.module_cooldown,
+            it.weapon_slots, it.module_slots
      FROM inventory inv
      INNER JOIN item_templates it ON it.id = inv.template_id
      WHERE inv.user_id = :user_id
@@ -77,6 +78,8 @@ foreach ($stmt->fetchAll() as $row) {
         'resistances' => $resistances,
         'weapon' => $weaponStats,
         'module' => $moduleStats,
+        'weapon_slots' => $row['weapon_slots'] !== null ? (int)$row['weapon_slots'] : 0,
+        'module_slots' => $row['module_slots'] !== null ? (int)$row['module_slots'] : 0,
     ];
 
     $items[] = $item;
@@ -90,7 +93,7 @@ foreach ($equippedStmt->fetchAll() as $row) {
     $equipped[$row['slot']] = (int)$row['inventory_id'];
 }
 
-$ecobotStmt = $pdo->prepare('SELECT nickname, base_atk, base_def, base_speed, base_focus, energy_max, hp_current FROM ecobots WHERE user_id = :user_id LIMIT 1');
+$ecobotStmt = $pdo->prepare('SELECT nickname, base_atk, base_def, base_speed, base_focus, energy_max, hp_current, equipped_carcass_inv_id FROM ecobots WHERE user_id = :user_id LIMIT 1');
 $ecobotStmt->execute(['user_id' => $auth['user_id']]);
 $ecobotRow = $ecobotStmt->fetch();
 
@@ -130,6 +133,31 @@ foreach ($baseStats as $key => $value) {
     $totalStats[$key] = $value + ($equipmentBonus[$key] ?? 0);
 }
 
+$equippedCarcassId = $equipped['carcass'] ?? ($ecobotRow['equipped_carcass_inv_id'] ?? null);
+$weaponSlots = 0;
+$moduleSlots = 0;
+if ($equippedCarcassId && isset($itemsById[$equippedCarcassId])) {
+    $carcassItem = $itemsById[$equippedCarcassId];
+    $weaponSlots = max(0, (int)$carcassItem['weapon_slots']);
+    $moduleSlots = max(0, (int)$carcassItem['module_slots']);
+} else {
+    $weaponSlots = 2;
+    $moduleSlots = 2;
+}
+
+$availableSlots = ['carcass'];
+for ($i = 1; $i <= $weaponSlots; $i++) {
+    $availableSlots[] = 'wpn' . $i;
+}
+for ($i = 1; $i <= $moduleSlots; $i++) {
+    $availableSlots[] = 'mod' . $i;
+}
+foreach (array_keys($equipped) as $slotKey) {
+    if (!in_array($slotKey, $availableSlots, true)) {
+        $availableSlots[] = $slotKey;
+    }
+}
+
 json_response([
     'items' => $items,
     'equipped' => $equipped,
@@ -139,6 +167,12 @@ json_response([
         'equipment_bonus' => $equipmentBonus,
         'total_stats' => $totalStats,
         'resistances' => $totalResistances,
+        'equipped_carcass_inv_id' => $equippedCarcassId ? (int)$equippedCarcassId : null,
+    ],
+    'slot_config' => [
+        'weapon_slots' => $weaponSlots,
+        'module_slots' => $moduleSlots,
+        'available_slots' => $availableSlots,
     ],
 ]);
 

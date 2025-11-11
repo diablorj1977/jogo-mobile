@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/core/rules.php
 require_once __DIR__ . '/response.php';
 require_once __DIR__ . '/geo.php';
 require_once __DIR__ . '/../init_config.php';

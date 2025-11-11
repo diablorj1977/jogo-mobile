@@ -1,3 +1,4 @@
+// File: public/js/inventario.js
 const inventoryList = document.getElementById('inventory-list');
 const slotsContainer = document.getElementById('slots');
 
@@ -15,7 +16,7 @@ function renderSlots(equipped) {
       btn.className = 'button is-small is-text';
       btn.textContent = 'Remover';
       btn.addEventListener('click', async () => {
-        await window.apiFetch('/api/inventory_unequip.php', {
+        await window.apiFetch('inventory_unequip.php', {
           method: 'POST',
           body: JSON.stringify({ slot }),
         });
@@ -29,7 +30,7 @@ function renderSlots(equipped) {
 
 async function loadInventory() {
   try {
-    const data = await window.apiFetch('/api/inventory_list.php');
+    const data = await window.apiFetch('inventory_list.php');
     inventoryList.innerHTML = '';
     data.items.forEach((item) => {
       const li = document.createElement('li');
@@ -41,7 +42,7 @@ async function loadInventory() {
       btn.addEventListener('click', async () => {
         const slot = prompt('Informe o slot (carcass, wpn1, wpn2, mod1, mod2):', 'carcass');
         if (!slot) return;
-        await window.apiFetch('/api/inventory_equip.php', {
+        await window.apiFetch('inventory_equip.php', {
           method: 'POST',
           body: JSON.stringify({ slot, inventory_id: item.id }),
         });

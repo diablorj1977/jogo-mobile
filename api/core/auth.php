@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/core/auth.php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/response.php';
 require_once __DIR__ . '/../init_config.php';

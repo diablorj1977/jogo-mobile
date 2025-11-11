@@ -1,20 +1,27 @@
-const CACHE_NAME = 'ecobots-cache-v1';
-const OFFLINE_URLS = [
-  '/index.html',
-  '/home.html',
-  '/missoes.html',
-  '/inventario.html',
-  '/caminhos.html',
-  '/perfil.html',
-  '/css/bulma.min.css',
-  '/css/app.css',
-  '/js/common_prelogin.js',
-  '/js/common_app.js'
+// File: public/sw.js
+const CACHE_NAME = 'ecobots-cache-v2';
+const SCOPE_BASE = self.registration.scope;
+const OFFLINE_PATHS = [
+  'index.html',
+  'home.html',
+  'missoes.html',
+  'inventario.html',
+  'caminhos.html',
+  'perfil.html',
+  'css/bulma.min.css',
+  'css/app.css',
+  'js/base_config.js',
+  'js/common_prelogin.js',
+  'js/common_app.js'
 ];
+
+function toAbsolute(path) {
+  return new URL(path, SCOPE_BASE).toString();
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_URLS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_PATHS.map(toAbsolute)))
   );
 });
 

@@ -8,6 +8,25 @@ const encounterStatus = document.getElementById('encounter-status');
 let map;
 let userMarker;
 let missionMarkers = [];
+const missionIconCache = {};
+
+function getMissionIcon(url) {
+  const fallback = (window.APP_CONFIG && window.APP_CONFIG.default_mission_icon) || null;
+  const iconUrl = url || fallback;
+  if (!iconUrl) {
+    return null;
+  }
+  if (!missionIconCache[iconUrl]) {
+    missionIconCache[iconUrl] = L.icon({
+      iconUrl,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -28],
+      className: 'mission-marker-icon',
+    });
+  }
+  return missionIconCache[iconUrl];
+}
 
 function initMap(lat, lng) {
   map = L.map(mapElement).setView([lat, lng], 14);
@@ -30,9 +49,22 @@ async function loadMissions(lat, lng) {
     clearMarkers();
     data.missions.forEach((mission) => {
       const li = document.createElement('li');
-      li.innerHTML = `<strong>${mission.name}</strong> — ${mission.tipo} — ${(mission.distance_m / 1000).toFixed(2)} km`;
+      li.className = 'mission-entry';
+      const iconUrl = mission.icon_url || (window.APP_CONFIG && window.APP_CONFIG.default_mission_icon);
+      li.innerHTML = `
+        <img class="mission-entry-icon" src="${iconUrl}" alt="${mission.tipo}">
+        <div class="mission-entry-body">
+          <strong>${mission.name}</strong>
+          <span class="mission-entry-meta">${mission.tipo} · ${(mission.distance_m / 1000).toFixed(2)} km</span>
+        </div>
+      `;
       missionsContainer.appendChild(li);
-      const marker = L.marker([mission.lat, mission.lng]).addTo(map).bindPopup(mission.name);
+      const icon = getMissionIcon(mission.icon_url);
+      const markerOptions = {};
+      if (icon) {
+        markerOptions.icon = icon;
+      }
+      const marker = L.marker([mission.lat, mission.lng], markerOptions).addTo(map).bindPopup(mission.name);
       missionMarkers.push(marker);
     });
   } catch (error) {

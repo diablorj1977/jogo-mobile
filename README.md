@@ -1,3 +1,4 @@
+<!-- File: README.md -->
 # Ecobots MVP
 
 Este repositório contém o MVP do Ecobots com backend em PHP 8 + MySQL 5.7 e frontend PWA em HTML/JS vanilla com Bulma.
@@ -69,6 +70,20 @@ Todas as rotas autenticadas exigem header `Authorization: Bearer <token>`.
 ## PWA
 
 O frontend utiliza Bulma puro, scripts JS por página e registra um service worker simples (`public/sw.js`) para cache básico offline.
+
+## Pacote de ícones
+
+Os ícones padrão são SVGs embutidos (data URI) definidos em `api/init_config.php`; não há arquivos binários versionados. Para obter
+um pacote zipado com esses SVGs, faça uma requisição GET para `/api/icons_package.php`.
+
+O endpoint gera o ZIP em tempo real (pastas `missions/*.svg`, `items/*.svg` e `items/kind-*.svg`) a partir das definições atuais.
+Exemplo via cURL (ajuste a URL base conforme `APP_BASE_API`):
+
+```bash
+curl -o mission_item_icons.zip "$APP_BASE_API/icons_package.php"
+```
+
+É necessário que o PHP tenha a extensão `zip`/`ZipArchive` habilitada para permitir a criação do pacote durante a requisição.
 
 ## Observações
 

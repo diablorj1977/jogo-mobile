@@ -88,6 +88,7 @@ foreach ($missions as $mission) {
         'recovery_min' => (int)$mission['recovery_min'],
         'janela_start' => $mission['janela_start'],
         'janela_end' => $mission['janela_end'],
+        'icon_url' => ecobots_resolve_mission_icon($mission['tipo']),
     ];
 }
 

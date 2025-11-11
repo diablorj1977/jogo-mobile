@@ -2,6 +2,7 @@
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/response.php';
 require_once __DIR__ . '/core/db.php';
+require_once __DIR__ . '/init_config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     error_response('Method not allowed', 405);
@@ -12,7 +13,11 @@ $pdo = get_pdo();
 
 $stmt = $pdo->prepare(
     'SELECT inv.id, inv.template_id, inv.qty, inv.upgrade_level, inv.is_favorite,
-            it.code, it.name, it.kind, it.rarity, it.min_level
+            it.code, it.name, it.kind, it.rarity, it.min_level, it.description, it.image_path,
+            it.base_hp, it.base_atk, it.base_def, it.base_speed, it.base_focus, it.energy_max AS template_energy_max,
+            it.res_kinetic, it.res_thermal, it.res_electric, it.res_chemical, it.res_emp,
+            it.dmg_min, it.dmg_max, it.dmg_type, it.energy_cost, it.accuracy, it.crit_bonus,
+            it.status_code, it.status_chance, it.module_kind, it.module_value, it.module_duration, it.module_cooldown
      FROM inventory inv
      INNER JOIN item_templates it ON it.id = inv.template_id
      WHERE inv.user_id = :user_id
@@ -20,8 +25,41 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute(['user_id' => $auth['user_id']]);
 $items = [];
+$itemsById = [];
 foreach ($stmt->fetchAll() as $row) {
-    $items[] = [
+    $statValues = [
+        'hp' => (int)$row['base_hp'],
+        'atk' => (int)$row['base_atk'],
+        'def' => (int)$row['base_def'],
+        'speed' => (int)$row['base_speed'],
+        'focus' => (int)$row['base_focus'],
+        'energy' => (int)$row['template_energy_max'],
+    ];
+    $resistances = [
+        'kinetic' => $row['res_kinetic'] !== null ? (float)$row['res_kinetic'] : null,
+        'thermal' => $row['res_thermal'] !== null ? (float)$row['res_thermal'] : null,
+        'electric' => $row['res_electric'] !== null ? (float)$row['res_electric'] : null,
+        'chemical' => $row['res_chemical'] !== null ? (float)$row['res_chemical'] : null,
+        'emp' => $row['res_emp'] !== null ? (float)$row['res_emp'] : null,
+    ];
+    $weaponStats = [
+        'dmg_min' => $row['dmg_min'] !== null ? (int)$row['dmg_min'] : null,
+        'dmg_max' => $row['dmg_max'] !== null ? (int)$row['dmg_max'] : null,
+        'dmg_type' => $row['dmg_type'] ?: null,
+        'energy_cost' => $row['energy_cost'] !== null ? (int)$row['energy_cost'] : null,
+        'accuracy' => $row['accuracy'] !== null ? (int)$row['accuracy'] : null,
+        'crit_bonus' => $row['crit_bonus'] !== null ? (int)$row['crit_bonus'] : null,
+        'status_code' => $row['status_code'] ?: null,
+        'status_chance' => $row['status_chance'] !== null ? (int)$row['status_chance'] : null,
+    ];
+    $moduleStats = [
+        'module_kind' => $row['module_kind'] ?: null,
+        'module_value' => $row['module_value'] !== null ? (int)$row['module_value'] : null,
+        'module_duration' => $row['module_duration'] !== null ? (int)$row['module_duration'] : null,
+        'module_cooldown' => $row['module_cooldown'] !== null ? (int)$row['module_cooldown'] : null,
+    ];
+
+    $item = [
         'id' => (int)$row['id'],
         'template_id' => (int)$row['template_id'],
         'code' => $row['code'],
@@ -32,7 +70,17 @@ foreach ($stmt->fetchAll() as $row) {
         'qty' => (int)$row['qty'],
         'upgrade_level' => (int)$row['upgrade_level'],
         'is_favorite' => (bool)$row['is_favorite'],
+        'description' => $row['description'],
+        'image_path' => $row['image_path'],
+        'image_url' => ecobots_resolve_item_icon($row['code'], $row['kind'], $row['image_path']),
+        'stats' => $statValues,
+        'resistances' => $resistances,
+        'weapon' => $weaponStats,
+        'module' => $moduleStats,
     ];
+
+    $items[] = $item;
+    $itemsById[$item['id']] = $item;
 }
 
 $equippedStmt = $pdo->prepare('SELECT slot, inventory_id FROM equipped_items WHERE user_id = :user_id');
@@ -42,9 +90,56 @@ foreach ($equippedStmt->fetchAll() as $row) {
     $equipped[$row['slot']] = (int)$row['inventory_id'];
 }
 
+$ecobotStmt = $pdo->prepare('SELECT nickname, base_atk, base_def, base_speed, base_focus, energy_max, hp_current FROM ecobots WHERE user_id = :user_id LIMIT 1');
+$ecobotStmt->execute(['user_id' => $auth['user_id']]);
+$ecobotRow = $ecobotStmt->fetch();
+
+$baseStats = [
+    'hp' => $ecobotRow ? (int)$ecobotRow['hp_current'] : 0,
+    'atk' => $ecobotRow ? (int)$ecobotRow['base_atk'] : 0,
+    'def' => $ecobotRow ? (int)$ecobotRow['base_def'] : 0,
+    'speed' => $ecobotRow ? (int)$ecobotRow['base_speed'] : 0,
+    'focus' => $ecobotRow ? (int)$ecobotRow['base_focus'] : 0,
+    'energy' => $ecobotRow ? (int)$ecobotRow['energy_max'] : 0,
+];
+
+$equipmentBonus = ['hp' => 0, 'atk' => 0, 'def' => 0, 'speed' => 0, 'focus' => 0, 'energy' => 0];
+$totalResistances = ['kinetic' => 1.0, 'thermal' => 1.0, 'electric' => 1.0, 'chemical' => 1.0, 'emp' => 1.0];
+
+foreach ($equipped as $inventoryId) {
+    if ($inventoryId <= 0 || !isset($itemsById[$inventoryId])) {
+        continue;
+    }
+    $item = $itemsById[$inventoryId];
+    foreach ($item['stats'] as $statKey => $value) {
+        if (!isset($equipmentBonus[$statKey]) || $value === null) {
+            continue;
+        }
+        $equipmentBonus[$statKey] += (int)$value;
+    }
+    foreach ($item['resistances'] as $resKey => $resValue) {
+        if ($resValue === null) {
+            continue;
+        }
+        $totalResistances[$resKey] *= (float)$resValue;
+    }
+}
+
+$totalStats = [];
+foreach ($baseStats as $key => $value) {
+    $totalStats[$key] = $value + ($equipmentBonus[$key] ?? 0);
+}
+
 json_response([
     'items' => $items,
     'equipped' => $equipped,
+    'ecobot' => [
+        'nickname' => $ecobotRow['nickname'] ?? null,
+        'base_stats' => $baseStats,
+        'equipment_bonus' => $equipmentBonus,
+        'total_stats' => $totalStats,
+        'resistances' => $totalResistances,
+    ],
 ]);
 
 ?>

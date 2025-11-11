@@ -7,9 +7,19 @@ window.missionHandlers = window.missionHandlers || {};
 
 function renderMission(mission) {
   const li = document.createElement('li');
-  li.className = 'box';
+  li.className = 'box mission-entry mission-entry--interactive';
+  const iconUrl = mission.icon_url || (window.APP_CONFIG && window.APP_CONFIG.default_mission_icon);
+  const icon = document.createElement('img');
+  icon.className = 'mission-entry-icon';
+  icon.src = iconUrl;
+  icon.alt = mission.tipo;
+  li.appendChild(icon);
   const info = document.createElement('div');
-  info.innerHTML = `<strong>${mission.name}</strong><br>Tipo: ${mission.tipo} — ${(mission.distance_m / 1000).toFixed(2)} km`;
+  info.className = 'mission-entry-body';
+  info.innerHTML = `
+    <strong>${mission.name}</strong>
+    <span class="mission-entry-meta">${mission.tipo} · ${(mission.distance_m / 1000).toFixed(2)} km</span>
+  `;
   const startBtn = document.createElement('button');
   startBtn.className = 'button is-link is-small mr-2';
   startBtn.textContent = 'Iniciar';

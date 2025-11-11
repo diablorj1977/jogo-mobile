@@ -1,5 +1,5 @@
 // File: public/sw.js
-const CACHE_NAME = 'ecobots-cache-v2';
+const CACHE_NAME = 'ecobots-cache-v4';
 const SCOPE_BASE = self.registration.scope;
 const OFFLINE_PATHS = [
   'index.html',
@@ -12,7 +12,14 @@ const OFFLINE_PATHS = [
   'css/app.css',
   'js/base_config.js',
   'js/common_prelogin.js',
-  'js/common_app.js'
+  'js/common_app.js',
+  'js/home.js',
+  'js/inventario.js',
+  'js/missoes_batalha.js',
+  'js/missoes_corrida.js',
+  'js/missoes_foto.js',
+  'js/missoes_qr.js',
+  'js/missoes_p2p.js'
 ];
 
 function toAbsolute(path) {

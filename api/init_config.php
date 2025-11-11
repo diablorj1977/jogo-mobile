@@ -53,6 +53,164 @@ if (!defined('APP_HEADQUARTERS_URL')) {
     define('APP_HEADQUARTERS_URL', 'https://negocio.tec.br/eco/hq');
 }
 
+if (!function_exists('ecobots_build_asset_url')) {
+    function ecobots_build_asset_url($base, $path, $fallback)
+    {
+        if (empty($path)) {
+            return $fallback;
+        }
+        if (preg_match('/^https?:\/\//i', $path)) {
+            return $path;
+        }
+        $cleanBase = rtrim($base ?? '', '/');
+        $cleanPath = ltrim($path, '/');
+        if ($cleanBase !== '') {
+            return $cleanBase . '/' . $cleanPath;
+        }
+        if (strpos($cleanPath, '/') === 0) {
+            return $cleanPath;
+        }
+        return '/' . $cleanPath;
+    }
+}
+
+if (!defined('APP_MISSION_ICON_BASE')) {
+    define('APP_MISSION_ICON_BASE', getenv('ECOBOTS_MISSION_ICON_BASE') ?: null);
+}
+
+if (!function_exists('ecobots_svg_to_data_uri')) {
+    function ecobots_svg_to_data_uri($svg)
+    {
+        return 'data:image/svg+xml;utf8,' . rawurlencode($svg);
+    }
+}
+
+if (!function_exists('ecobots_svg_badge')) {
+    function ecobots_svg_badge($label, $background, $foreground)
+    {
+        $safeLabel = htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeBackground = htmlspecialchars($background, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeForeground = htmlspecialchars($foreground, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+            . '<rect x="0" y="0" width="64" height="64" rx="8" ry="8" fill="' . $safeBackground . '"/>'
+            . '<text x="32" y="38" font-family="Arial,Helvetica,sans-serif" font-size="28" fill="' . $safeForeground . '"'
+            . ' text-anchor="middle" font-weight="bold">' . $safeLabel . '</text>'
+            . '</svg>';
+    }
+}
+
+if (!defined('APP_MISSION_ICON_SVGS')) {
+    define('APP_MISSION_ICON_SVGS', [
+        'DEFAULT' => ecobots_svg_badge('M', '#0a9396', '#ffffff'),
+        'BATALHA' => ecobots_svg_badge('B', '#9b2226', '#ffffff'),
+        'BATALHA_GRUPO' => ecobots_svg_badge('BG', '#bb3e03', '#ffffff'),
+        'FOTO' => ecobots_svg_badge('F', '#005f73', '#ffffff'),
+        'SCAN' => ecobots_svg_badge('QR', '#5a189a', '#ffffff'),
+        'CORRIDA' => ecobots_svg_badge('C', '#ca6702', '#ffffff'),
+        'P2P' => ecobots_svg_badge('P', '#0b7285', '#ffffff'),
+        'P2P_GRUPO' => ecobots_svg_badge('PG', '#1d3557', '#ffffff'),
+    ]);
+}
+
+if (!defined('APP_MISSION_TYPE_ICONS')) {
+    $iconMap = [];
+    foreach (APP_MISSION_ICON_SVGS as $type => $svg) {
+        $iconMap[strtoupper($type)] = ecobots_svg_to_data_uri($svg);
+    }
+    define('APP_MISSION_TYPE_ICONS', $iconMap);
+}
+
+if (!defined('APP_DEFAULT_MISSION_ICON')) {
+    define('APP_DEFAULT_MISSION_ICON', APP_MISSION_TYPE_ICONS['DEFAULT']);
+}
+
+if (!function_exists('ecobots_resolve_mission_icon')) {
+    function ecobots_resolve_mission_icon($type, $relativePath = null)
+    {
+        $typeKey = strtoupper($type ?? '');
+        if (!empty($relativePath)) {
+            if (preg_match('/^https?:\/\//i', $relativePath) || str_starts_with($relativePath, 'data:')) {
+                return $relativePath;
+            }
+            if (APP_MISSION_ICON_BASE) {
+                return rtrim(APP_MISSION_ICON_BASE, '/') . '/' . ltrim($relativePath, '/');
+            }
+        }
+
+        return APP_MISSION_TYPE_ICONS[$typeKey] ?? APP_DEFAULT_MISSION_ICON;
+    }
+}
+
+if (!defined('APP_ITEM_IMAGE_BASE')) {
+    define('APP_ITEM_IMAGE_BASE', getenv('ECOBOTS_ITEM_IMAGE_BASE') ?: null);
+}
+
+if (!defined('APP_ITEM_ICON_SVGS')) {
+    define('APP_ITEM_ICON_SVGS', [
+        'DEFAULT' => ecobots_svg_badge('IT', '#2b9348', '#ffffff'),
+        'CRC_ONCA' => ecobots_svg_badge('CR', '#386641', '#ffffff'),
+        'WPN_GARRA' => ecobots_svg_badge('WG', '#bb9457', '#ffffff'),
+        'WPN_LASER' => ecobots_svg_badge('WL', '#ee9b00', '#000000'),
+        'MOD_REPAIR' => ecobots_svg_badge('MR', '#0a9396', '#ffffff'),
+        'MOD_NANO' => ecobots_svg_badge('MN', '#577590', '#ffffff'),
+    ]);
+}
+
+if (!defined('APP_ITEM_KIND_ICON_SVGS')) {
+    define('APP_ITEM_KIND_ICON_SVGS', [
+        'CARCASS' => ecobots_svg_badge('CA', '#6a994e', '#ffffff'),
+        'WEAPON' => ecobots_svg_badge('WP', '#e36414', '#ffffff'),
+        'MODULE' => ecobots_svg_badge('MO', '#3a0ca3', '#ffffff'),
+    ]);
+}
+
+if (!defined('APP_ITEM_ICON_DATA')) {
+    $codeIcons = [];
+    foreach (APP_ITEM_ICON_SVGS as $code => $svg) {
+        $codeIcons[strtoupper($code)] = ecobots_svg_to_data_uri($svg);
+    }
+    define('APP_ITEM_ICON_DATA', $codeIcons);
+}
+
+if (!defined('APP_ITEM_KIND_ICON_DATA')) {
+    $kindIcons = [];
+    foreach (APP_ITEM_KIND_ICON_SVGS as $kind => $svg) {
+        $kindIcons[strtoupper($kind)] = ecobots_svg_to_data_uri($svg);
+    }
+    define('APP_ITEM_KIND_ICON_DATA', $kindIcons);
+}
+
+if (!defined('APP_DEFAULT_ITEM_IMAGE')) {
+    define('APP_DEFAULT_ITEM_IMAGE', APP_ITEM_ICON_DATA['DEFAULT']);
+}
+
+if (!function_exists('ecobots_resolve_item_icon')) {
+    function ecobots_resolve_item_icon($code, $kind, $relativePath = null)
+    {
+        $codeKey = strtoupper($code ?? '');
+        if ($codeKey !== '' && isset(APP_ITEM_ICON_DATA[$codeKey])) {
+            return APP_ITEM_ICON_DATA[$codeKey];
+        }
+
+        $kindKey = strtoupper($kind ?? '');
+        if ($kindKey !== '' && isset(APP_ITEM_KIND_ICON_DATA[$kindKey])) {
+            return APP_ITEM_KIND_ICON_DATA[$kindKey];
+        }
+
+        if (!empty($relativePath)) {
+            if (preg_match('/^https?:\/\//i', $relativePath) || str_starts_with($relativePath, 'data:')) {
+                return $relativePath;
+            }
+            if (APP_ITEM_IMAGE_BASE) {
+                return rtrim(APP_ITEM_IMAGE_BASE, '/') . '/' . ltrim($relativePath, '/');
+            }
+        }
+
+        return APP_DEFAULT_ITEM_IMAGE;
+    }
+}
+
 if (!defined('APP_PITY_THRESHOLD')) {
     define('APP_PITY_THRESHOLD', 10);
 }
@@ -97,6 +255,13 @@ if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_NAME']) === 'init_con
         'base_api' => APP_BASE_API,
         'base_html' => APP_BASE_HTML,
         'upload_url' => APP_UPLOAD_URL,
+        'mission_type_icons' => APP_MISSION_TYPE_ICONS,
+        'default_mission_icon' => APP_DEFAULT_MISSION_ICON,
+        'mission_icon_svgs' => APP_MISSION_ICON_SVGS,
+        'item_image_base' => APP_ITEM_IMAGE_BASE,
+        'default_item_image' => APP_DEFAULT_ITEM_IMAGE,
+        'item_icon_map' => APP_ITEM_ICON_DATA,
+        'item_kind_icon_map' => APP_ITEM_KIND_ICON_DATA,
     ];
 
     $format = isset($_GET['format']) ? strtolower($_GET['format']) : 'json';

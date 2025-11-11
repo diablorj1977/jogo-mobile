@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/init_config.php
 // Core configuration for Ecobots MVP
 // These values are intended to be customised per deployment.
 
@@ -25,6 +25,20 @@ if (!defined('APP_ALLOWED_ORIGIN')) {
     define('APP_ALLOWED_ORIGIN', 'https://negocio.tec.br');
 }
 
+if (!defined('APP_BASE_HTML')) {
+    $defaultHtml = getenv('ECOBOTS_BASE_HTML') ?: (isset($_SERVER['HTTP_HOST'])
+        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/public')
+        : '/public');
+    define('APP_BASE_HTML', rtrim($defaultHtml, '/'));
+}
+
+if (!defined('APP_BASE_API')) {
+    $defaultApi = getenv('ECOBOTS_BASE_API') ?: (isset($_SERVER['HTTP_HOST'])
+        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/api')
+        : '/api');
+    define('APP_BASE_API', rtrim($defaultApi, '/'));
+}
+
 if (!defined('APP_DEFAULT_GEOFENCE_KM')) {
     define('APP_DEFAULT_GEOFENCE_KM', 3);
 }
@@ -38,7 +52,7 @@ if (!defined('APP_UPLOAD_PATH')) {
 }
 
 if (!defined('APP_UPLOAD_URL')) {
-    define('APP_UPLOAD_URL', '/api/uploads');
+    define('APP_UPLOAD_URL', APP_BASE_API . '/uploads');
 }
 
 if (!defined('APP_HEADQUARTERS_URL')) {
@@ -82,6 +96,27 @@ if (!defined('APP_ECOBOT_DOWN_HOURS')) {
 }
 
 if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_NAME']) === 'init_config.php') {
+    $configPayload = [
+        'hq_url' => APP_HEADQUARTERS_URL,
+        'default_geofence_km' => APP_DEFAULT_GEOFENCE_KM,
+        'mission_start_radius_m' => APP_MISSION_START_RADIUS_M,
+        'base_api' => APP_BASE_API,
+        'base_html' => APP_BASE_HTML,
+        'upload_url' => APP_UPLOAD_URL,
+    ];
+
+    $format = isset($_GET['format']) ? strtolower($_GET['format']) : 'json';
+
+    if ($format === 'js') {
+        header('Content-Type: application/javascript');
+        header('Access-Control-Allow-Origin: ' . APP_ALLOWED_ORIGIN);
+        echo 'window.APP_BASE_API = ' . json_encode($configPayload['base_api']) . "\n";
+        echo 'window.APP_BASE_HTML = ' . json_encode($configPayload['base_html']) . "\n";
+        echo 'window.APP_UPLOAD_URL = ' . json_encode($configPayload['upload_url']) . "\n";
+        echo 'window.APP_CONFIG = ' . json_encode($configPayload) . ';';
+        exit;
+    }
+
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: ' . APP_ALLOWED_ORIGIN);
     header('Access-Control-Allow-Headers: Authorization, Content-Type');
@@ -89,11 +124,7 @@ if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_NAME']) === 'init_con
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         exit;
     }
-    echo json_encode([
-        'hq_url' => APP_HEADQUARTERS_URL,
-        'default_geofence_km' => APP_DEFAULT_GEOFENCE_KM,
-        'mission_start_radius_m' => APP_MISSION_START_RADIUS_M,
-    ]);
+    echo json_encode($configPayload);
     exit;
 }
 

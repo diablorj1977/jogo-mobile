@@ -6,10 +6,10 @@ if (!defined('DB_HOST')) {
     define('DB_HOST', getenv('ECOBOTS_DB_HOST') ?: 'localhost');
 }
 if (!defined('DB_NAME')) {
-    define('DB_NAME', getenv('ECOBOTS_DB_NAME') ?: 'ecobots');
+    define('DB_NAME', getenv('ECOBOTS_DB_NAME') ?: 'reforc07_ECOBOTS');
 }
 if (!defined('DB_USER')) {
-    define('DB_USER', getenv('ECOBOTS_DB_USER') ?: 'ecobots');
+    define('DB_USER', getenv('ECOBOTS_DB_USER') ?: 'reforc07_ECOBOTS');
 }
 if (!defined('DB_PASS')) {
     define('DB_PASS', getenv('ECOBOTS_DB_PASS') ?: 'secret');
@@ -26,17 +26,11 @@ if (!defined('APP_ALLOWED_ORIGIN')) {
 }
 
 if (!defined('APP_BASE_HTML')) {
-    $defaultHtml = getenv('ECOBOTS_BASE_HTML') ?: (isset($_SERVER['HTTP_HOST'])
-        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/public')
-        : '/public');
-    define('APP_BASE_HTML', rtrim($defaultHtml, '/'));
+    define('APP_BASE_HTML','https://negocio.tec.br/jogo-mobile-main/public/');
 }
 
-if (!defined('APP_BASE_API')) {
-    $defaultApi = getenv('ECOBOTS_BASE_API') ?: (isset($_SERVER['HTTP_HOST'])
-        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/api')
-        : '/api');
-    define('APP_BASE_API', rtrim($defaultApi, '/'));
+if (!defined('APP_BASE_API')) {    
+    define('APP_BASE_API', 'https://negocio.tec.br/jogo-mobile-main/api/');
 }
 
 if (!defined('APP_DEFAULT_GEOFENCE_KM')) {

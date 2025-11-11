@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/core/db.php
 require_once __DIR__ . '/../init_config.php';
 
 function get_pdo(): PDO

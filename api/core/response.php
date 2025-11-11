@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/core/response.php
 require_once __DIR__ . '/../init_config.php';
 
 function json_response($data, int $status = 200): void

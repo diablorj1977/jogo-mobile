@@ -1,4 +1,4 @@
-<?php
+<?php // File: api/mission_photo_upload.php
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/response.php';
 require_once __DIR__ . '/core/db.php';

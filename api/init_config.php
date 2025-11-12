@@ -26,17 +26,11 @@ if (!defined('APP_ALLOWED_ORIGIN')) {
 }
 
 if (!defined('APP_BASE_HTML')) {
-    $defaultHtml = getenv('ECOBOTS_BASE_HTML') ?: (isset($_SERVER['HTTP_HOST'])
-        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/public')
-        : '/public');
-    define('APP_BASE_HTML', rtrim($defaultHtml, '/'));
+    define('APP_BASE_HTML','https://negocio.tec.br/jogo-mobile-main/public/');
 }
 
-if (!defined('APP_BASE_API')) {
-    $defaultApi = getenv('ECOBOTS_BASE_API') ?: (isset($_SERVER['HTTP_HOST'])
-        ? (($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://' . $_SERVER['HTTP_HOST'] . '/api')
-        : '/api');
-    define('APP_BASE_API', rtrim($defaultApi, '/'));
+if (!defined('APP_BASE_API')) {    
+    define('APP_BASE_API', 'https://negocio.tec.br/jogo-mobile-main/api/');
 }
 
 if (!defined('APP_DEFAULT_GEOFENCE_KM')) {

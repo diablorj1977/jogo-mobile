@@ -1,10 +1,10 @@
 // File: public/js/home.js
 const mapElement = document.getElementById('map');
-const missionsContainer = document.getElementById('missions-container');
 const refreshButton = document.getElementById('refresh-missions');
 const encounterButton = document.getElementById('scan-encounter');
 const encounterStatus = document.getElementById('encounter-status');
 const radiusInfo = document.getElementById('radius-info');
+const mapStatus = document.getElementById('map-status');
 let map;
 let userMarker;
 let missionMarkers = [];
@@ -12,6 +12,22 @@ let activeRouteLayer = null;
 let activeRouteMissionId = null;
 const missionIconCache = {};
 const baseHelpers = window.EcobotsBase || {};
+
+function setMapStatus(message, variant = 'info') {
+  if (!mapStatus) {
+    return;
+  }
+  if (!message) {
+    mapStatus.textContent = '';
+    mapStatus.classList.add('is-hidden');
+    mapStatus.classList.remove('is-error', 'is-info');
+    return;
+  }
+  mapStatus.textContent = message;
+  mapStatus.classList.remove('is-hidden');
+  mapStatus.classList.toggle('is-error', variant === 'error');
+  mapStatus.classList.toggle('is-info', variant !== 'error');
+}
 
 function buildMissionDetailUrl(missionId) {
   const path = `missao.html?mission_id=${encodeURIComponent(missionId)}`;
@@ -146,31 +162,12 @@ async function handleRouteForMission(mission, button, statusElement) {
 async function loadMissions(lat, lng) {
   const km = await ensureRadius().catch(() => currentRadiusKm || 3);
   try {
+    setMapStatus('Carregando missões...', 'info');
     const data = await window.apiFetch(`missions_list.php?lat=${lat}&lng=${lng}&km=${km}`);
-    missionsContainer.innerHTML = '';
     clearMarkers();
     data.missions.forEach((mission) => {
-      const li = document.createElement('li');
-      li.className = 'mission-entry';
       const iconUrl = mission.icon_url || (window.APP_CONFIG && window.APP_CONFIG.default_mission_icon);
       const detailUrl = buildMissionDetailUrl(mission.id);
-      li.innerHTML = `
-        <img class="mission-entry-icon" src="${iconUrl}" alt="${mission.tipo}">
-        <div class="mission-entry-body">
-          <strong>${mission.name}</strong>
-          <span class="mission-entry-meta">${mission.tipo} · ${(mission.distance_m / 1000).toFixed(2)} km</span>
-        </div>
-        <div class="mission-entry-actions">
-          <a class="button is-link is-light is-small" href="${detailUrl}">Ver missão</a>
-        </div>
-      `;
-      li.addEventListener('click', (event) => {
-        if (event.target && event.target.closest('a')) {
-          return;
-        }
-        window.location.href = detailUrl;
-      });
-      missionsContainer.appendChild(li);
       const icon = getMissionIcon(mission.icon_url);
       const markerOptions = {};
       if (icon) {
@@ -187,7 +184,7 @@ async function loadMissions(lat, lng) {
       popupContent.appendChild(meta);
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'button is-link is-small mt-3';
+      button.className = 'button mission-popup-button is-small';
       button.textContent = 'Mostrar missão';
       button.addEventListener('click', () => {
         window.location.href = detailUrl;
@@ -198,7 +195,7 @@ async function loadMissions(lat, lng) {
       popupContent.appendChild(routeInfo);
       const routeButton = document.createElement('button');
       routeButton.type = 'button';
-      routeButton.className = 'button is-info is-light is-small mt-2';
+      routeButton.className = 'button mission-popup-button mission-popup-button-route is-small';
       routeButton.textContent = 'Mostrar caminho';
       routeButton.addEventListener('click', () => {
         handleRouteForMission(mission, routeButton, routeInfo);
@@ -207,15 +204,16 @@ async function loadMissions(lat, lng) {
       marker.bindPopup(popupContent);
       missionMarkers.push(marker);
     });
+    setMapStatus(`${data.missions.length} missões carregadas no mapa.`, 'info');
   } catch (error) {
-    missionsContainer.innerHTML = `<li>${error.message}</li>`;
+    setMapStatus(error.message || 'Não foi possível carregar missões.', 'error');
   }
 }
 
 function locateAndLoad() {
   ensureRadius().catch(() => {});
   if (!navigator.geolocation) {
-    missionsContainer.innerHTML = '<li>Geolocalização indisponível</li>';
+    setMapStatus('Geolocalização indisponível.', 'error');
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -231,7 +229,7 @@ function locateAndLoad() {
       loadMissions(latitude, longitude);
     },
     () => {
-      missionsContainer.innerHTML = '<li>Não foi possível obter localização</li>';
+      setMapStatus('Não foi possível obter a localização atual.', 'error');
     }
   );
 }

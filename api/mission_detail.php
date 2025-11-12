@@ -143,6 +143,71 @@ if (strtoupper($mission['tipo']) === 'SCAN') {
     $typeData['qr_hint'] = $mission['qr_hint'];
 }
 
+if (strtoupper($mission['tipo']) === 'BATALHA') {
+    $battleStateJson = null;
+    if ($runId) {
+        $battleStmt = $pdo->prepare('SELECT state_json FROM battles WHERE mission_run_id = :run_id ORDER BY id DESC LIMIT 1');
+        $battleStmt->execute(['run_id' => $runId]);
+        $battleRow = $battleStmt->fetch();
+        if ($battleRow && !empty($battleRow['state_json'])) {
+            $battleStateJson = $battleRow['state_json'];
+        }
+    }
+    if ($battleStateJson === null) {
+        $fallbackStmt = $pdo->prepare('SELECT state_json FROM battles WHERE user_id = :user_id AND source = "MISSION" AND source_id = :mission_id ORDER BY id DESC LIMIT 1');
+        $fallbackStmt->execute([
+            'user_id' => $auth['user_id'],
+            'mission_id' => $missionId,
+        ]);
+        $fallbackRow = $fallbackStmt->fetch();
+        if ($fallbackRow && !empty($fallbackRow['state_json'])) {
+            $battleStateJson = $fallbackRow['state_json'];
+        }
+    }
+
+    if ($battleStateJson !== null) {
+        $state = json_decode($battleStateJson, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($state)) {
+            $enemy = $state['enemy'] ?? [];
+            $enemyMoves = [];
+            if (!empty($enemy['moves']) && is_array($enemy['moves'])) {
+                foreach ($enemy['moves'] as $move) {
+                    if (!is_array($move)) {
+                        continue;
+                    }
+                    $enemyMoves[] = [
+                        'name' => $move['name'] ?? 'Ataque',
+                        'dmg_min' => isset($move['min']) ? (int)$move['min'] : (isset($move['dmg_min']) ? (int)$move['dmg_min'] : 0),
+                        'dmg_max' => isset($move['max']) ? (int)$move['max'] : (isset($move['dmg_max']) ? (int)$move['dmg_max'] : 0),
+                        'dmg_type' => $move['type'] ?? ($move['dmg_type'] ?? null),
+                        'accuracy' => isset($move['acc']) ? (int)$move['acc'] : (isset($move['accuracy']) ? (int)$move['accuracy'] : 85),
+                        'weight' => isset($move['w']) ? (int)$move['w'] : (isset($move['weight']) ? (int)$move['weight'] : 1),
+                    ];
+                }
+            }
+
+            $playerState = $state['player'] ?? [];
+
+            $typeData['battle'] = [
+                'enemy' => [
+                    'name' => $enemy['name'] ?? null,
+                    'level' => isset($enemy['level']) ? (int)$enemy['level'] : null,
+                    'hp_max' => isset($enemy['hp_max']) ? (int)$enemy['hp_max'] : (isset($enemy['hp']) ? (int)$enemy['hp'] : 0),
+                    'hp_current' => isset($enemy['hp']) ? (int)$enemy['hp'] : (isset($enemy['hp_max']) ? (int)$enemy['hp_max'] : 0),
+                    'moves' => $enemyMoves,
+                    'reward_xp' => isset($enemy['reward_xp']) ? (int)$enemy['reward_xp'] : null,
+                ],
+                'player' => [
+                    'name' => $playerState['name'] ?? null,
+                    'level' => isset($playerState['level']) ? (int)$playerState['level'] : null,
+                    'hp_max' => isset($playerState['hp_max']) ? (int)$playerState['hp_max'] : null,
+                    'hp_current' => isset($playerState['hp']) ? (int)$playerState['hp'] : null,
+                ],
+            ];
+        }
+    }
+}
+
 $runData = null;
 $reachedPoints = [];
 if ($runId) {

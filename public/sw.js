@@ -1,5 +1,5 @@
 // File: public/sw.js
-const CACHE_NAME = 'ecobots-cache-v5';
+const CACHE_NAME = 'ecobots-cache-v6';
 const SCOPE_BASE = self.registration.scope;
 const OFFLINE_PATHS = [
   'index.html',
@@ -19,6 +19,7 @@ const OFFLINE_PATHS = [
   'js/base_config.js',
   'js/common_prelogin.js',
   'js/common_app.js',
+  'js/geolocalizacao.js',
   'js/home.js',
   'js/inventario.js',
   'js/missao.js',

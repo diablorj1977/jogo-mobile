@@ -182,6 +182,13 @@ function renderMission(mission) {
     <strong>${mission.name}</strong>
     <span class="mission-entry-meta">${mission.tipo} · ${(mission.distance_m / 1000).toFixed(2)} km</span>
   `;
+  const showBtn = document.createElement('a');
+  showBtn.className = 'button is-info is-small mr-2';
+  const missionUrl = (window.EcobotsBase && typeof window.EcobotsBase.toHtml === 'function')
+    ? window.EcobotsBase.toHtml(`missao.html?mission_id=${encodeURIComponent(mission.id)}`)
+    : `missao.html?mission_id=${encodeURIComponent(mission.id)}`;
+  showBtn.href = missionUrl;
+  showBtn.textContent = 'Mostrar missão';
   const startBtn = document.createElement('button');
   startBtn.className = 'button is-link is-small mr-2';
   startBtn.textContent = 'Iniciar';
@@ -192,6 +199,7 @@ function renderMission(mission) {
   finishBtn.addEventListener('click', () => finishMission(mission, li));
   const buttons = document.createElement('div');
   buttons.className = 'buttons';
+  buttons.appendChild(showBtn);
   buttons.appendChild(startBtn);
   buttons.appendChild(finishBtn);
   li.appendChild(info);

@@ -8,6 +8,17 @@ const battleRunId = parseInt(battleParams.get('run_id') || '', 10);
 let battleDetail = null;
 let battleInventory = null;
 let battleLog = [];
+let battleState = {
+  enemy: null,
+  player: null,
+  turn: 0,
+  ended: false,
+};
+let battleActionButtons = [];
+let enemyHpFill = null;
+let enemyHpLabel = null;
+let playerHpFill = null;
+let playerHpLabel = null;
 
 function toHtml(path) {
   if (typeof baseHelpersBattle.toHtml === 'function') {
@@ -50,14 +61,51 @@ function describeModuleEffect(item) {
   }
 }
 
+function numberOrFallback(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 function appendBattleLog(entry) {
-  battleLog.push({ text: entry, at: new Date().toISOString() });
+  const normalised = typeof entry === 'string' ? { message: entry } : Object.assign({}, entry);
+  normalised.at = normalised.at || new Date().toISOString();
+  if (typeof normalised.turn !== 'number') {
+    normalised.turn = battleState.turn;
+  }
+  normalised.actor = normalised.actor || 'SISTEMA';
+  normalised.detail = normalised.detail || '';
+  battleLog.push(normalised);
+  renderBattleLog();
+}
+
+function renderBattleLog() {
   const logList = document.getElementById('battle-log');
-  if (!logList) return;
+  if (!logList) {
+    return;
+  }
   logList.innerHTML = '';
-  battleLog.slice().reverse().forEach((item, index) => {
+  if (!battleLog.length) {
+    const empty = document.createElement('li');
+    empty.className = 'battle-log-empty';
+    empty.textContent = 'Nenhum turno registrado ainda.';
+    logList.appendChild(empty);
+    return;
+  }
+
+  const reversed = battleLog.slice().reverse();
+  reversed.forEach((entry) => {
     const li = document.createElement('li');
-    li.innerHTML = `<strong>Turno ${battleLog.length - index}:</strong> ${item.text}<br><small>${new Date(item.at).toLocaleTimeString()}</small>`;
+    li.className = 'battle-log-entry';
+    const code = document.createElement('code');
+    const turnLabel = String(entry.turn || 0).padStart(2, '0');
+    code.innerHTML = `<span><strong>[T${turnLabel}] ${entry.actor}</strong> :: ${entry.message}</span><span>${new Date(entry.at).toLocaleTimeString()}</span>`;
+    li.appendChild(code);
+    if (entry.detail) {
+      const detail = document.createElement('span');
+      detail.className = 'battle-log-metadata';
+      detail.textContent = entry.detail;
+      li.appendChild(detail);
+    }
     logList.appendChild(li);
   });
 }
@@ -130,7 +178,212 @@ function createActionCard(config) {
     footer.appendChild(span);
   }
   card.appendChild(footer);
+  battleActionButtons.push(button);
   return card;
+}
+
+function initialiseBattleState() {
+  const enemyData = battleDetail?.type_data?.battle?.enemy || {};
+  const enemyMax = Math.max(numberOrFallback(enemyData.hp_max, numberOrFallback(enemyData.hp_current, 100)), 1);
+  const enemyCurrent = Math.max(0, numberOrFallback(enemyData.hp_current, enemyMax));
+  const rawMoves = Array.isArray(enemyData.moves) && enemyData.moves.length ? enemyData.moves : [];
+  const moves = rawMoves.length
+    ? rawMoves.map((move) => ({
+        name: move.name || 'Ataque',
+        dmg_min: numberOrFallback(move.dmg_min ?? move.min, 5),
+        dmg_max: numberOrFallback(move.dmg_max ?? move.max, numberOrFallback(move.dmg_min ?? move.min, 8)),
+        dmg_type: move.dmg_type || move.type || 'KINETIC',
+        accuracy: numberOrFallback(move.accuracy ?? move.acc, 85),
+        weight: numberOrFallback(move.weight ?? move.w, 1),
+      }))
+    : [
+        {
+          name: 'Investida',
+          dmg_min: 5,
+          dmg_max: 12,
+          dmg_type: 'KINETIC',
+          accuracy: 85,
+          weight: 1,
+        },
+      ];
+
+  const stats = battleInventory?.ecobot?.total_stats || {};
+  const baseline = battleInventory?.ecobot?.baseline_stats || {};
+  const playerMax = Math.max(numberOrFallback(stats.hp, numberOrFallback(baseline.hp, 120)), 1);
+
+  battleState = {
+    enemy: {
+      name: enemyData.name || 'Inimigo desconhecido',
+      level: enemyData.level || null,
+      maxHp: enemyMax,
+      hp: enemyCurrent,
+      moves,
+    },
+    player: {
+      name: battleInventory?.ecobot?.nickname || battleDetail?.player?.nickname || 'Ecobot',
+      maxHp: playerMax,
+      hp: playerMax,
+    },
+    turn: 0,
+    ended: false,
+  };
+
+  battleLog = [];
+  battleActionButtons = [];
+}
+
+function updateBattleHud() {
+  if (battleState.enemy) {
+    const percentEnemy = Math.max(0, Math.min(100, (battleState.enemy.hp / battleState.enemy.maxHp) * 100));
+    if (enemyHpFill) {
+      enemyHpFill.style.width = `${percentEnemy}%`;
+    }
+    if (enemyHpLabel) {
+      enemyHpLabel.textContent = `HP ${battleState.enemy.hp}/${battleState.enemy.maxHp}`;
+    }
+  }
+  if (battleState.player) {
+    const percentPlayer = Math.max(0, Math.min(100, (battleState.player.hp / battleState.player.maxHp) * 100));
+    if (playerHpFill) {
+      playerHpFill.style.width = `${percentPlayer}%`;
+    }
+    if (playerHpLabel) {
+      playerHpLabel.textContent = `HP ${battleState.player.hp}/${battleState.player.maxHp}`;
+    }
+  }
+}
+
+function disableBattleActions() {
+  battleActionButtons.forEach((button) => {
+    button.disabled = true;
+    button.classList.add('is-static');
+  });
+}
+
+function rollDamage(min, max) {
+  const lower = Math.max(0, Math.floor(numberOrFallback(min, 0)));
+  const upperCandidate = Math.max(0, Math.floor(numberOrFallback(max, lower)));
+  const upper = upperCandidate >= lower ? upperCandidate : lower;
+  const span = upper - lower + 1;
+  return lower + Math.floor(Math.random() * span);
+}
+
+function selectEnemyMove(moves) {
+  if (!Array.isArray(moves) || !moves.length) {
+    return null;
+  }
+  const weights = moves.map((move) => Math.max(1, numberOrFallback(move.weight, 1)));
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let threshold = Math.random() * totalWeight;
+  for (let index = 0; index < moves.length; index += 1) {
+    threshold -= weights[index];
+    if (threshold <= 0) {
+      return moves[index];
+    }
+  }
+  return moves[moves.length - 1];
+}
+
+function performEnemyTurn(turn) {
+  if (battleState.ended) {
+    return;
+  }
+  const move = selectEnemyMove(battleState.enemy?.moves);
+  if (!move) {
+    return;
+  }
+  const accuracy = numberOrFallback(move.accuracy, 85);
+  const roll = rollDamage(move.dmg_min, move.dmg_max);
+  const hit = Math.random() * 100 <= accuracy;
+  if (hit) {
+    battleState.player.hp = Math.max(0, battleState.player.hp - roll);
+  }
+  appendBattleLog({
+    turn,
+    actor: battleState.enemy?.name || 'Inimigo',
+    message: `${move.name || 'Ataque'} ${hit ? 'acertou' : 'errou'}${hit ? ` :: ${roll} ${move.dmg_type || 'DMG'}` : ''}`,
+    detail: `HP Ecobot ${battleState.player.hp}/${battleState.player.maxHp}`,
+  });
+  updateBattleHud();
+  if (battleState.player.hp <= 0) {
+    battleState.ended = true;
+    disableBattleActions();
+    appendBattleLog({
+      turn,
+      actor: 'SISTEMA',
+      message: 'Ecobot ficou sem energia! Considere abortar ou finalizar a missão.',
+    });
+  }
+}
+
+function performPlayerAction(action) {
+  if (battleState.ended) {
+    return;
+  }
+  battleState.turn += 1;
+  const turn = battleState.turn;
+  const accuracy = numberOrFallback(action.accuracy, 100);
+  const roll = rollDamage(action.min, action.max);
+  const hit = Math.random() * 100 <= accuracy;
+  if (hit) {
+    battleState.enemy.hp = Math.max(0, battleState.enemy.hp - roll);
+  }
+  appendBattleLog({
+    turn,
+    actor: 'ECOBOT',
+    message: `${action.label || 'Ação'} ${hit ? 'acertou' : 'errou'}${hit ? ` :: ${roll} ${action.type || 'DMG'}` : ''}`,
+    detail: `HP inimigo ${battleState.enemy.hp}/${battleState.enemy.maxHp}`,
+  });
+  updateBattleHud();
+  if (battleState.enemy.hp <= 0) {
+    battleState.ended = true;
+    disableBattleActions();
+    appendBattleLog({
+      turn,
+      actor: 'SISTEMA',
+      message: 'Inimigo neutralizado! Finalize para encerrar a batalha.',
+    });
+    return;
+  }
+  performEnemyTurn(turn);
+}
+
+function performModuleAction(action) {
+  if (battleState.ended) {
+    return;
+  }
+  battleState.turn += 1;
+  const turn = battleState.turn;
+  const kind = (action.moduleKind || '').toUpperCase();
+  let detail = '';
+  let message = `${action.label || 'Módulo'} ativado`;
+  if (kind === 'HEAL') {
+    const before = battleState.player.hp;
+    battleState.player.hp = Math.min(battleState.player.maxHp, battleState.player.hp + numberOrFallback(action.value, 0));
+    const healed = battleState.player.hp - before;
+    detail = `HP Ecobot ${battleState.player.hp}/${battleState.player.maxHp} (+${healed})`;
+  } else if (kind === 'SHIELD') {
+    detail = 'Escudo temporário ativado.';
+  } else if (kind === 'BUFF_ATK') {
+    detail = 'Ataque amplificado para os próximos turnos.';
+  } else if (kind === 'BUFF_DEF') {
+    detail = 'Defesa reforçada contra próximos golpes.';
+  } else if (kind === 'ENERGIZE') {
+    detail = 'Baterias recarregadas.';
+  } else if (kind === 'CLEANSE') {
+    detail = 'Status negativos removidos.';
+  }
+
+  appendBattleLog({
+    turn,
+    actor: 'ECOBOT',
+    message: `${message}${kind ? ` (${kind})` : ''}`,
+    detail: detail || `HP Ecobot ${battleState.player.hp}/${battleState.player.maxHp}`,
+  });
+  updateBattleHud();
+  if (battleState.enemy.hp > 0) {
+    performEnemyTurn(turn);
+  }
 }
 
 function equipActions() {
@@ -145,7 +398,16 @@ function equipActions() {
         subtitle: basic.description || 'Golpe padrão do Ecobot',
         meta: `Dano ${basic.dmg_min || '?'}–${basic.dmg_max || '?'} (${basic.dmg_type || 'KINETIC'})`,
         onExecute: () => {
-          appendBattleLog(`Ataque básico aplicado (${basic.dmg_min || '?'}–${basic.dmg_max || '?'})`);
+          const min = numberOrFallback(basic.dmg_min, 4);
+          const max = numberOrFallback(basic.dmg_max, min > 0 ? min : 8);
+          const accuracy = numberOrFallback(basic.accuracy, 90);
+          performPlayerAction({
+            label: basic.name || 'Ataque básico',
+            min,
+            max,
+            accuracy,
+            type: basic.dmg_type || 'KINETIC',
+          });
         },
       })
     );
@@ -163,7 +425,16 @@ function equipActions() {
           subtitle: `${item.weapon?.dmg_type || 'KINETIC'} · Precisão ${item.weapon?.accuracy || 0}%`,
           meta: `Dano ${describeDamageRange(item)} · Custo ${item.weapon?.energy_cost ?? 0}`,
           onExecute: () => {
-            appendBattleLog(`Ataque com ${item.name} (${describeDamageRange(item)})`);
+            const weaponMin = numberOrFallback(item.weapon?.dmg_min, numberOrFallback(item.weapon?.min, 6));
+            const weaponMax = numberOrFallback(item.weapon?.dmg_max, weaponMin > 0 ? weaponMin : 12);
+            const weaponAccuracy = numberOrFallback(item.weapon?.accuracy, 85);
+            performPlayerAction({
+              label: `Ataque com ${item.name}`,
+              min: weaponMin,
+              max: weaponMax,
+              accuracy: weaponAccuracy,
+              type: item.weapon?.dmg_type || item.weapon?.type || 'KINETIC',
+            });
           },
         })
       );
@@ -190,14 +461,21 @@ function equipActions() {
           return;
         }
         config.usesLeft -= 1;
-        appendBattleLog(`Módulo ${item.name} ativado (${describeModuleEffect(item)})`);
+        performModuleAction({
+          label: item.name,
+          moduleKind: item.module?.module_kind,
+          value: item.module?.module_value,
+        });
         if (config.usesLeft <= 0) {
           button.disabled = true;
           config.footerText = 'Esgotado';
         } else {
           config.footerText = `Usos restantes: ${config.usesLeft}`;
         }
-        button.parentElement.querySelector('.mission-module-uses').textContent = config.footerText;
+        const usesElement = button.parentElement.querySelector('.mission-module-uses');
+        if (usesElement) {
+          usesElement.textContent = config.footerText;
+        }
       };
       moduleCards.push(createActionCard(config));
     });
@@ -209,6 +487,11 @@ function equipActions() {
 function renderBattle() {
   battleContainer.innerHTML = '';
   battleError.classList.add('is-hidden');
+  battleActionButtons = [];
+  enemyHpFill = null;
+  enemyHpLabel = null;
+  playerHpFill = null;
+  playerHpLabel = null;
 
   const header = document.createElement('div');
   header.className = 'mission-detail-header';
@@ -224,6 +507,59 @@ function renderBattle() {
     header.appendChild(img);
   }
   battleContainer.appendChild(header);
+
+  const hud = document.createElement('div');
+  hud.className = 'battle-hud';
+
+  const enemyCard = document.createElement('div');
+  enemyCard.className = 'battle-hud-card battle-hud-card--enemy';
+  const enemyTitle = document.createElement('div');
+  enemyTitle.className = 'battle-hud-title';
+  enemyTitle.textContent = 'Inimigo';
+  enemyCard.appendChild(enemyTitle);
+  const enemyName = document.createElement('div');
+  enemyName.className = 'battle-hud-value';
+  enemyName.textContent = battleState.enemy?.name || 'Alvo desconhecido';
+  enemyCard.appendChild(enemyName);
+  const enemyLevel = document.createElement('div');
+  enemyLevel.className = 'battle-hp-label';
+  enemyLevel.textContent = battleState.enemy?.level ? `Nível ${battleState.enemy.level}` : 'Nível não informado';
+  enemyCard.appendChild(enemyLevel);
+  const enemyBar = document.createElement('div');
+  enemyBar.className = 'battle-hp-bar';
+  const enemyFill = document.createElement('span');
+  enemyBar.appendChild(enemyFill);
+  enemyHpFill = enemyFill;
+  enemyCard.appendChild(enemyBar);
+  const enemyHp = document.createElement('div');
+  enemyHp.className = 'battle-hp-label';
+  enemyHpLabel = enemyHp;
+  enemyCard.appendChild(enemyHp);
+  hud.appendChild(enemyCard);
+
+  const playerCard = document.createElement('div');
+  playerCard.className = 'battle-hud-card battle-hud-card--player';
+  const playerTitle = document.createElement('div');
+  playerTitle.className = 'battle-hud-title';
+  playerTitle.textContent = 'Ecobot';
+  playerCard.appendChild(playerTitle);
+  const playerName = document.createElement('div');
+  playerName.className = 'battle-hud-value';
+  playerName.textContent = battleState.player?.name || 'Ecobot';
+  playerCard.appendChild(playerName);
+  const playerBar = document.createElement('div');
+  playerBar.className = 'battle-hp-bar';
+  const playerFill = document.createElement('span');
+  playerBar.appendChild(playerFill);
+  playerHpFill = playerFill;
+  playerCard.appendChild(playerBar);
+  const playerHp = document.createElement('div');
+  playerHp.className = 'battle-hp-label';
+  playerHpLabel = playerHp;
+  playerCard.appendChild(playerHp);
+  hud.appendChild(playerCard);
+
+  battleContainer.appendChild(hud);
 
   battleContainer.appendChild(buildStatsSection());
 
@@ -244,7 +580,7 @@ function renderBattle() {
   logSection.appendChild(logTitle);
   const logList = document.createElement('ul');
   logList.id = 'battle-log';
-  logList.className = 'mission-log';
+  logList.className = 'battle-log';
   logSection.appendChild(logList);
   battleContainer.appendChild(logSection);
 
@@ -270,6 +606,8 @@ function renderBattle() {
   actionBar.appendChild(cancelButton);
 
   battleContainer.appendChild(actionBar);
+  updateBattleHud();
+  renderBattleLog();
 }
 
 function finalizeBattle(button) {
@@ -350,7 +688,14 @@ function loadBattle() {
     })
     .then((inventory) => {
       battleInventory = inventory;
+      initialiseBattleState();
       renderBattle();
+      appendBattleLog({
+        turn: 0,
+        actor: 'SISTEMA',
+        message: `Inimigo detectado: ${battleState.enemy?.name || 'Alvo desconhecido'}`,
+        detail: `HP inimigo ${battleState.enemy?.hp}/${battleState.enemy?.maxHp}`,
+      });
     })
     .catch((error) => {
       battleContainer.innerHTML = '';

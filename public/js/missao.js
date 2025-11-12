@@ -227,7 +227,7 @@ function renderMission(detail) {
   actionBar.className = 'mission-start-actions';
   const startButton = document.createElement('button');
   startButton.className = 'button is-primary';
-  startButton.textContent = 'Iniciar missão';
+  startButton.textContent = 'Mostrar missão';
   startButton.disabled = !detail.can_start;
   actionBar.appendChild(startButton);
 

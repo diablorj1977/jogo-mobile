@@ -30,6 +30,62 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.has-geo-status {
+  padding-bottom: 4.5rem;
+}
+
+.geo-status-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1.5rem;
+  background: linear-gradient(90deg, rgba(4, 20, 35, 0.95) 0%, rgba(10, 26, 48, 0.92) 50%, rgba(16, 32, 56, 0.95) 100%);
+  border-top: 1px solid rgba(83, 242, 255, 0.25);
+  box-shadow: 0 -12px 35px rgba(8, 16, 32, 0.65);
+  color: var(--app-primary);
+  font-family: 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  z-index: 999;
+}
+
+.geo-status-bar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.geo-status-label::before {
+  content: '📡';
+}
+
+.geo-status-accuracy::before {
+  content: '±';
+  font-weight: 600;
+}
+
+.geo-status-timestamp::before {
+  content: '⏱';
+}
+
+.geo-status-bar--error {
+  color: var(--app-danger);
+  border-top-color: rgba(255, 107, 203, 0.4);
+}
+
+@media (max-width: 480px) {
+  .geo-status-bar {
+    font-size: 0.75rem;
+    padding: 0.55rem 1rem;
+  }
+}
+
 a {
   color: var(--app-primary);
   transition: var(--app-transition);
@@ -201,6 +257,65 @@ h6 {
   border: 1px solid rgba(83, 242, 255, 0.18);
   overflow: hidden;
   box-shadow: var(--app-card-shadow);
+}
+
+.map-status-text {
+  font-size: 0.9rem;
+  color: var(--app-text-muted);
+  text-shadow: 0 0 8px rgba(83, 242, 255, 0.2);
+  letter-spacing: 0.01em;
+  transition: var(--app-transition);
+}
+
+.map-status-text.is-hidden {
+  display: none;
+}
+
+.map-status-text.is-info {
+  color: var(--app-primary);
+  text-shadow: 0 0 12px rgba(83, 242, 255, 0.35);
+}
+
+.map-status-text.is-error {
+  color: var(--app-danger);
+  text-shadow: 0 0 12px rgba(255, 107, 203, 0.45);
+}
+
+.leaflet-popup-content {
+  color: var(--app-text);
+  font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+
+.leaflet-popup-content strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.leaflet-popup-content .mission-popup-button {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(83, 242, 255, 0.6);
+  background: linear-gradient(135deg, rgba(83, 242, 255, 0.65), rgba(176, 123, 255, 0.65));
+  color: #f9fbff;
+  text-shadow: 0 0 10px rgba(5, 12, 28, 0.8);
+}
+
+.leaflet-popup-content .mission-popup-button-route {
+  border-color: rgba(102, 255, 179, 0.7);
+  background: linear-gradient(135deg, rgba(102, 255, 179, 0.65), rgba(83, 242, 255, 0.6));
+}
+
+.leaflet-popup-content .mission-popup-button:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(5, 12, 28, 0.65);
+}
+
+.leaflet-popup-content .mission-route-info {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  margin-top: 0.5rem;
+  text-shadow: 0 0 6px rgba(8, 13, 24, 0.6);
 }
 
 .inventory-list {
@@ -455,6 +570,71 @@ h6 {
   align-items: center;
 }
 
+.battle-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.battle-hud-card {
+  flex: 1 1 240px;
+  background: linear-gradient(160deg, rgba(8, 16, 30, 0.9), rgba(26, 48, 78, 0.6));
+  border: 1px solid rgba(83, 242, 255, 0.25);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 24px 45px rgba(8, 14, 26, 0.6);
+}
+
+.battle-hud-card--player {
+  border-color: rgba(102, 255, 179, 0.35);
+  background: linear-gradient(160deg, rgba(10, 30, 24, 0.9), rgba(28, 60, 52, 0.6));
+}
+
+.battle-hud-card--enemy {
+  border-color: rgba(255, 107, 203, 0.35);
+  background: linear-gradient(160deg, rgba(30, 10, 24, 0.9), rgba(60, 28, 52, 0.6));
+}
+
+.battle-hud-title {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+  color: var(--app-secondary);
+}
+
+.battle-hud-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.battle-hp-bar {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(5, 20, 28, 0.6);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.battle-hp-bar span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(102, 255, 179, 0.9), rgba(83, 242, 255, 0.8));
+  transition: width 0.35s ease;
+}
+
+.battle-hp-label {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  letter-spacing: 0.05em;
+}
+
 .mission-detail-icon {
   width: 72px;
   height: 72px;
@@ -700,21 +880,59 @@ h6 {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  font-family: 'Fira Code', 'Source Code Pro', monospace;
+  color: #7bffcf;
 }
 
 .battle-log li {
-  background: rgba(12, 18, 32, 0.9);
+  background: linear-gradient(135deg, rgba(0, 20, 20, 0.65), rgba(0, 60, 60, 0.25));
   border-radius: 12px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   font-size: 0.9rem;
-  border: 1px solid rgba(83, 242, 255, 0.18);
-  box-shadow: inset 0 0 16px rgba(83, 242, 255, 0.08);
+  border: 1px solid rgba(83, 242, 255, 0.25);
+  box-shadow: inset 0 0 18px rgba(15, 230, 200, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.battle-log li::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(83, 242, 255, 0.08), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.battle-log li:hover::after {
+  opacity: 1;
+}
+
+.battle-log-entry code {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.battle-log-entry strong {
+  color: var(--app-primary);
 }
 
 .battle-log-time {
   font-size: 0.75rem;
   color: var(--app-text-muted);
   margin-left: 0.5rem;
+}
+
+.battle-log-metadata {
+  font-size: 0.7rem;
+  color: rgba(123, 255, 207, 0.8);
+  margin-top: 0.25rem;
+  display: block;
 }
 
 .battle-log-empty {

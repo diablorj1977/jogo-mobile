@@ -58,7 +58,27 @@ foreach ($stmt->fetchAll() as $row) {
         'module_value' => $row['module_value'] !== null ? (int)$row['module_value'] : null,
         'module_duration' => $row['module_duration'] !== null ? (int)$row['module_duration'] : null,
         'module_cooldown' => $row['module_cooldown'] !== null ? (int)$row['module_cooldown'] : null,
+        'module_energy_cost' => null,
+        'effects' => [],
     ];
+
+    if ($moduleStats['module_kind']) {
+        $kindKey = strtoupper($moduleStats['module_kind']);
+        $moduleStats['module_energy_cost'] = APP_BATTLE_MODULE_ENERGY_COSTS[$kindKey] ?? 0;
+        if (isset(APP_MODULE_BONUS_DEFINITIONS[$kindKey])) {
+            $definition = APP_MODULE_BONUS_DEFINITIONS[$kindKey];
+            $rawValue = $moduleStats['module_value'] ?? 0;
+            $rarityMultiplier = APP_RARITY_SCALING[$row['rarity']] ?? 1.0;
+            $moduleStats['effects'][] = [
+                'type' => $definition['type'],
+                'unit' => $definition['unit'],
+                'label' => $definition['label'],
+                'value_percent' => (float)$rawValue,
+                'effective_percent' => (float)$rawValue * $rarityMultiplier,
+                'rarity_multiplier' => $rarityMultiplier,
+            ];
+        }
+    }
 
     $item = [
         'id' => (int)$row['id'],
@@ -109,6 +129,11 @@ $baseStats = [
 
 $equipmentBonus = ['hp' => 0, 'atk' => 0, 'def' => 0, 'speed' => 0, 'focus' => 0, 'energy' => 0];
 $totalResistances = ['kinetic' => 1.0, 'thermal' => 1.0, 'electric' => 1.0, 'chemical' => 1.0, 'emp' => 1.0];
+$moduleBonuses = [
+    'drop' => 0.0,
+    'xp' => 0.0,
+    'breakdown' => [],
+];
 
 foreach ($equipped as $inventoryId) {
     if ($inventoryId <= 0 || !isset($itemsById[$inventoryId])) {
@@ -126,6 +151,25 @@ foreach ($equipped as $inventoryId) {
             continue;
         }
         $totalResistances[$resKey] *= (float)$resValue;
+    }
+    if (strtoupper($item['kind']) === 'MODULE' && !empty($item['module']['effects'])) {
+        foreach ($item['module']['effects'] as $effect) {
+            $effective = (float)($effect['effective_percent'] ?? 0.0);
+            if ($effective <= 0) {
+                continue;
+            }
+            if ($effect['type'] === 'drop') {
+                $moduleBonuses['drop'] += $effective;
+            } elseif ($effect['type'] === 'xp') {
+                $moduleBonuses['xp'] += $effective;
+            }
+            $moduleBonuses['breakdown'][] = [
+                'item_id' => $item['id'],
+                'name' => $item['name'],
+                'type' => $effect['type'],
+                'value_percent' => $effective,
+            ];
+        }
     }
 }
 
@@ -171,6 +215,13 @@ json_response([
         'total_stats' => $totalStats,
         'resistances' => $totalResistances,
         'equipped_carcass_inv_id' => $equippedCarcassId ? (int)$equippedCarcassId : null,
+        'bonuses' => [
+            'drop_chance_base' => APP_BASE_DROP_CHANCE,
+            'drop_chance_bonus' => $moduleBonuses['drop'] / 100,
+            'drop_chance_bonus_percent' => $moduleBonuses['drop'],
+            'xp_bonus_percent' => $moduleBonuses['xp'],
+            'module_breakdown' => $moduleBonuses['breakdown'],
+        ],
     ],
     'slot_config' => [
         'weapon_slots' => $weaponSlots,

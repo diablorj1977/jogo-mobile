@@ -133,6 +133,30 @@ function renderEcobotStats(ecobot) {
     resContainer.appendChild(resFragment);
     ecobotStatsContainer.appendChild(resContainer);
   }
+
+  if (ecobot.bonuses) {
+    const bonusBox = document.createElement('div');
+    bonusBox.className = 'ecobot-bonuses';
+    const baseDropPercent = ((ecobot.bonuses.drop_chance_base || 0) * 100).toFixed(1);
+    const bonusDropPercent = (ecobot.bonuses.drop_chance_bonus_percent || 0).toFixed(1);
+    const totalDropPercent = ((ecobot.bonuses.drop_chance_base || 0) * 100 + (ecobot.bonuses.drop_chance_bonus_percent || 0)).toFixed(1);
+    const xpBonusPercent = (ecobot.bonuses.xp_bonus_percent || 0).toFixed(1);
+    bonusBox.innerHTML = `
+      <p><strong>Chance de drop:</strong> base ${baseDropPercent}% · bônus ${bonusDropPercent}% · total ${totalDropPercent}%</p>
+      <p><strong>Bônus de XP:</strong> ${xpBonusPercent}%</p>
+    `;
+    if (Array.isArray(ecobot.bonuses.module_breakdown) && ecobot.bonuses.module_breakdown.length) {
+      const list = document.createElement('ul');
+      list.className = 'ecobot-bonuses-list';
+      ecobot.bonuses.module_breakdown.forEach((entry) => {
+        const item = document.createElement('li');
+        item.textContent = `${entry.name || 'Módulo'}: ${entry.type === 'drop' ? 'Drop' : 'XP'} +${(entry.value_percent || 0).toFixed(1)}%`;
+        list.appendChild(item);
+      });
+      bonusBox.appendChild(list);
+    }
+    ecobotStatsContainer.appendChild(bonusBox);
+  }
 }
 
 function renderSlots(equipped, itemsMap) {
@@ -235,14 +259,31 @@ function renderInventory(items, equipped) {
     }
     if (item.weapon && item.weapon.energy_cost) {
       const costSpan = document.createElement('span');
-      costSpan.textContent = `Custo ${item.weapon.energy_cost}`;
+      costSpan.textContent = `Energia ${item.weapon.energy_cost}`;
       stats.appendChild(costSpan);
     }
     if (item.module && item.module.module_kind) {
       const moduleSpan = document.createElement('span');
-      const cooldownText = item.module.module_cooldown ? ` CD ${item.module.module_cooldown}` : '';
-      moduleSpan.textContent = `${item.module.module_kind} ${item.module.module_value || ''}${cooldownText}`.trim();
+      const parts = [item.module.module_kind];
+      if (item.module.module_value) {
+        parts.push(item.module.module_value);
+      }
+      if (item.module.module_energy_cost) {
+        parts.push(`EN ${item.module.module_energy_cost}`);
+      }
+      if (item.module.module_cooldown) {
+        parts.push(`CD ${item.module.module_cooldown}`);
+      }
+      moduleSpan.textContent = parts.join(' ');
       stats.appendChild(moduleSpan);
+      if (Array.isArray(item.module.effects) && item.module.effects.length) {
+        item.module.effects.forEach((effect) => {
+          const effectSpan = document.createElement('span');
+          const label = effect.label || effect.type;
+          effectSpan.textContent = `${label}: +${(effect.effective_percent || effect.value_percent || 0).toFixed(1)}%`;
+          stats.appendChild(effectSpan);
+        });
+      }
     }
 
     meta.appendChild(stats);

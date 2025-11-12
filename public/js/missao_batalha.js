@@ -19,6 +19,8 @@ let enemyHpFill = null;
 let enemyHpLabel = null;
 let playerHpFill = null;
 let playerHpLabel = null;
+let playerEnergyFill = null;
+let playerEnergyLabel = null;
 
 function toHtml(path) {
   if (typeof baseHelpersBattle.toHtml === 'function') {
@@ -210,6 +212,7 @@ function initialiseBattleState() {
   const stats = battleInventory?.ecobot?.total_stats || {};
   const baseline = battleInventory?.ecobot?.baseline_stats || {};
   const playerMax = Math.max(numberOrFallback(stats.hp, numberOrFallback(baseline.hp, 120)), 1);
+  const playerEnergyMax = Math.max(numberOrFallback(stats.energy, numberOrFallback(baseline.energy, 12)), 0);
 
   battleState = {
     enemy: {
@@ -223,9 +226,16 @@ function initialiseBattleState() {
       name: battleInventory?.ecobot?.nickname || battleDetail?.player?.nickname || 'Ecobot',
       maxHp: playerMax,
       hp: playerMax,
+      energyMax: playerEnergyMax,
+      energy: playerEnergyMax,
     },
     turn: 0,
     ended: false,
+    buttons: {
+      finish: null,
+      abort: null,
+      cancel: null,
+    },
   };
 
   battleLog = [];
@@ -249,6 +259,13 @@ function updateBattleHud() {
     }
     if (playerHpLabel) {
       playerHpLabel.textContent = `HP ${battleState.player.hp}/${battleState.player.maxHp}`;
+    }
+    if (playerEnergyFill && battleState.player.energyMax > 0) {
+      const percentEnergy = Math.max(0, Math.min(100, (battleState.player.energy / battleState.player.energyMax) * 100));
+      playerEnergyFill.style.width = `${percentEnergy}%`;
+    }
+    if (playerEnergyLabel && battleState.player.energyMax > 0) {
+      playerEnergyLabel.textContent = `Energia ${battleState.player.energy}/${battleState.player.energyMax}`;
     }
   }
 }
@@ -320,11 +337,23 @@ function performPlayerAction(action) {
   if (battleState.ended) {
     return;
   }
+  const energyCost = numberOrFallback(action.energyCost, 0);
+  if (energyCost > 0 && battleState.player.energy < energyCost) {
+    appendBattleLog({
+      turn: battleState.turn,
+      actor: 'SISTEMA',
+      message: `Energia insuficiente para ${action.label || 'a ação'}.`,
+    });
+    return;
+  }
   battleState.turn += 1;
   const turn = battleState.turn;
   const accuracy = numberOrFallback(action.accuracy, 100);
   const roll = rollDamage(action.min, action.max);
   const hit = Math.random() * 100 <= accuracy;
+  if (energyCost > 0) {
+    battleState.player.energy = Math.max(0, battleState.player.energy - energyCost);
+  }
   if (hit) {
     battleState.enemy.hp = Math.max(0, battleState.enemy.hp - roll);
   }
@@ -343,6 +372,7 @@ function performPlayerAction(action) {
       actor: 'SISTEMA',
       message: 'Inimigo neutralizado! Finalize para encerrar a batalha.',
     });
+    handleBattleVictory();
     return;
   }
   performEnemyTurn(turn);
@@ -352,11 +382,23 @@ function performModuleAction(action) {
   if (battleState.ended) {
     return;
   }
+  const energyCost = numberOrFallback(action.energyCost, 0);
+  if (energyCost > 0 && battleState.player.energy < energyCost) {
+    appendBattleLog({
+      turn: battleState.turn,
+      actor: 'SISTEMA',
+      message: `Energia insuficiente para ${action.label || 'o módulo'}.`,
+    });
+    return;
+  }
   battleState.turn += 1;
   const turn = battleState.turn;
   const kind = (action.moduleKind || '').toUpperCase();
   let detail = '';
   let message = `${action.label || 'Módulo'} ativado`;
+  if (energyCost > 0) {
+    battleState.player.energy = Math.max(0, battleState.player.energy - energyCost);
+  }
   if (kind === 'HEAL') {
     const before = battleState.player.hp;
     battleState.player.hp = Math.min(battleState.player.maxHp, battleState.player.hp + numberOrFallback(action.value, 0));
@@ -369,7 +411,13 @@ function performModuleAction(action) {
   } else if (kind === 'BUFF_DEF') {
     detail = 'Defesa reforçada contra próximos golpes.';
   } else if (kind === 'ENERGIZE') {
-    detail = 'Baterias recarregadas.';
+    const beforeEnergy = battleState.player.energy;
+    battleState.player.energy = Math.min(
+      battleState.player.energyMax,
+      battleState.player.energy + numberOrFallback(action.value, 0)
+    );
+    const gained = battleState.player.energy - beforeEnergy;
+    detail = `Energia recarregada (+${gained})`;
   } else if (kind === 'CLEANSE') {
     detail = 'Status negativos removidos.';
   }
@@ -407,6 +455,7 @@ function equipActions() {
             max,
             accuracy,
             type: basic.dmg_type || 'KINETIC',
+            energyCost: numberOrFallback(basic.energy_cost, 0),
           });
         },
       })
@@ -423,7 +472,7 @@ function equipActions() {
         createActionCard({
           title: item.name,
           subtitle: `${item.weapon?.dmg_type || 'KINETIC'} · Precisão ${item.weapon?.accuracy || 0}%`,
-          meta: `Dano ${describeDamageRange(item)} · Custo ${item.weapon?.energy_cost ?? 0}`,
+          meta: `Dano ${describeDamageRange(item)} · Energia ${item.weapon?.energy_cost ?? 0}`,
           onExecute: () => {
             const weaponMin = numberOrFallback(item.weapon?.dmg_min, numberOrFallback(item.weapon?.min, 6));
             const weaponMax = numberOrFallback(item.weapon?.dmg_max, weaponMin > 0 ? weaponMin : 12);
@@ -434,6 +483,7 @@ function equipActions() {
               max: weaponMax,
               accuracy: weaponAccuracy,
               type: item.weapon?.dmg_type || item.weapon?.type || 'KINETIC',
+              energyCost: numberOrFallback(item.weapon?.energy_cost, 0),
             });
           },
         })
@@ -450,7 +500,7 @@ function equipActions() {
       const config = {
         title: item.name,
         subtitle: describeModuleEffect(item),
-        meta: `Tipo ${item.module?.module_kind || 'SUPORTE'}`,
+        meta: `Tipo ${item.module?.module_kind || 'SUPORTE'} · Energia ${item.module?.module_energy_cost ?? 0}`,
         buttonLabel: 'Usar módulo',
         footerText: `Usos restantes: ${totalUses}`,
         usesLeft: totalUses,
@@ -465,6 +515,7 @@ function equipActions() {
           label: item.name,
           moduleKind: item.module?.module_kind,
           value: item.module?.module_value,
+          energyCost: numberOrFallback(item.module?.module_energy_cost, 0),
         });
         if (config.usesLeft <= 0) {
           button.disabled = true;
@@ -557,9 +608,58 @@ function renderBattle() {
   playerHp.className = 'battle-hp-label';
   playerHpLabel = playerHp;
   playerCard.appendChild(playerHp);
+  if (battleState.player?.energyMax > 0) {
+    const energyBar = document.createElement('div');
+    energyBar.className = 'battle-hp-bar battle-energy-bar';
+    const energyFill = document.createElement('span');
+    energyBar.appendChild(energyFill);
+    playerEnergyFill = energyFill;
+    playerCard.appendChild(energyBar);
+    const energyLabel = document.createElement('div');
+    energyLabel.className = 'battle-hp-label battle-energy-label';
+    playerEnergyLabel = energyLabel;
+    playerCard.appendChild(energyLabel);
+  }
   hud.appendChild(playerCard);
 
   battleContainer.appendChild(hud);
+
+  const loadout = battleDetail?.type_data?.battle?.loadout;
+  if (loadout && (loadout.carcass || (loadout.weapons && loadout.weapons.length))) {
+    const loadoutSection = document.createElement('div');
+    loadoutSection.className = 'mission-section';
+    const loadoutTitle = document.createElement('h2');
+    loadoutTitle.className = 'title is-5';
+    loadoutTitle.textContent = 'Equipamento inimigo';
+    loadoutSection.appendChild(loadoutTitle);
+    const list = document.createElement('ul');
+    list.className = 'battle-loadout-list';
+    if (loadout.carcass) {
+      const li = document.createElement('li');
+      li.textContent = `Carcaça: ${loadout.carcass}`;
+      list.appendChild(li);
+    }
+    if (Array.isArray(loadout.weapons)) {
+      loadout.weapons
+        .filter(Boolean)
+        .forEach((weaponName) => {
+          const li = document.createElement('li');
+          li.textContent = `Arma: ${weaponName}`;
+          list.appendChild(li);
+        });
+    }
+    if (Array.isArray(loadout.modules)) {
+      loadout.modules
+        .filter(Boolean)
+        .forEach((moduleName) => {
+          const li = document.createElement('li');
+          li.textContent = `Módulo: ${moduleName}`;
+          list.appendChild(li);
+        });
+    }
+    loadoutSection.appendChild(list);
+    battleContainer.appendChild(loadoutSection);
+  }
 
   battleContainer.appendChild(buildStatsSection());
 
@@ -606,6 +706,11 @@ function renderBattle() {
   actionBar.appendChild(cancelButton);
 
   battleContainer.appendChild(actionBar);
+  battleState.buttons = {
+    finish: finishButton,
+    abort: abortButton,
+    cancel: cancelButton,
+  };
   updateBattleHud();
   renderBattleLog();
 }
@@ -621,11 +726,30 @@ function finalizeBattle(button) {
         run_id: battleRunId,
       }),
     })
-    .then(() => {
+    .then((data) => {
       button.classList.remove('is-loading');
       button.textContent = 'Missão concluída!';
       button.classList.add('is-static');
-      appendBattleLog('Batalha concluída com sucesso.');
+      appendBattleLog({
+        actor: 'SISTEMA',
+        message: `Batalha concluída! XP ganho: ${data.reward_xp || battleDetail.mission.reward_xp}.`,
+      });
+      if (data.drop_reward?.awarded && data.drop_reward.item) {
+        appendBattleLog({
+          actor: 'SISTEMA',
+          message: `Drop obtido: ${data.drop_reward.item.name} (${data.drop_reward.item.rarity || '—'}).`,
+        });
+      }
+      if (battleState.buttons.abort) {
+        battleState.buttons.abort.classList.add('is-hidden');
+      }
+      if (battleState.buttons.cancel) {
+        battleState.buttons.cancel.classList.add('is-hidden');
+      }
+      const redirectUrl = toHtml('home.html');
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 1500);
     })
     .catch((error) => {
       battleError.textContent = error.message;
@@ -696,12 +820,46 @@ function loadBattle() {
         message: `Inimigo detectado: ${battleState.enemy?.name || 'Alvo desconhecido'}`,
         detail: `HP inimigo ${battleState.enemy?.hp}/${battleState.enemy?.maxHp}`,
       });
+      if (battleDetail?.type_data?.battle?.loadout) {
+        const loadout = battleDetail.type_data.battle.loadout;
+        const loadoutStrings = [];
+        if (loadout.carcass) {
+          loadoutStrings.push(`Carcaça ${loadout.carcass}`);
+        }
+        if (Array.isArray(loadout.weapons) && loadout.weapons.length) {
+          loadoutStrings.push(`Armas: ${loadout.weapons.filter(Boolean).join(', ')}`);
+        }
+        if (Array.isArray(loadout.modules) && loadout.modules.length) {
+          loadoutStrings.push(`Módulos: ${loadout.modules.filter(Boolean).join(', ')}`);
+        }
+        if (loadoutStrings.length) {
+          appendBattleLog({
+            turn: 0,
+            actor: 'SISTEMA',
+            message: `Loadout inimigo — ${loadoutStrings.join(' | ')}`,
+          });
+        }
+      }
     })
     .catch((error) => {
       battleContainer.innerHTML = '';
       battleError.textContent = error.message;
       battleError.classList.remove('is-hidden');
     });
+}
+
+function handleBattleVictory() {
+  if (battleState.buttons?.abort) {
+    battleState.buttons.abort.classList.add('is-hidden');
+  }
+  if (battleState.buttons?.cancel) {
+    battleState.buttons.cancel.classList.add('is-hidden');
+  }
+  if (battleState.buttons?.finish) {
+    battleState.buttons.finish.disabled = false;
+    battleState.buttons.finish.classList.remove('is-static');
+    battleState.buttons.finish.textContent = 'Finalizar missão';
+  }
 }
 
 loadBattle();

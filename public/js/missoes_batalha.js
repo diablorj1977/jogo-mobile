@@ -1,7 +1,6 @@
 // File: public/js/missoes_batalha.js
 const missionsListElement = document.getElementById('missions-list');
 const missionTypeFilter = document.getElementById('mission-type-filter');
-const missionState = {};
 const workspaceRoot = document.getElementById('mission-workspace');
 const workspaceTitle = document.getElementById('mission-workspace-title');
 const workspaceContent = document.getElementById('mission-workspace-content');
@@ -183,25 +182,15 @@ function renderMission(mission) {
     <span class="mission-entry-meta">${mission.tipo} · ${(mission.distance_m / 1000).toFixed(2)} km</span>
   `;
   const showBtn = document.createElement('a');
-  showBtn.className = 'button is-info is-small mr-2';
+  showBtn.className = 'button is-info is-small';
   const missionUrl = (window.EcobotsBase && typeof window.EcobotsBase.toHtml === 'function')
     ? window.EcobotsBase.toHtml(`missao.html?mission_id=${encodeURIComponent(mission.id)}`)
     : `missao.html?mission_id=${encodeURIComponent(mission.id)}`;
   showBtn.href = missionUrl;
   showBtn.textContent = 'Mostrar missão';
-  const startBtn = document.createElement('button');
-  startBtn.className = 'button is-link is-small mr-2';
-  startBtn.textContent = 'Iniciar';
-  startBtn.addEventListener('click', () => startMission(mission, li));
-  const finishBtn = document.createElement('button');
-  finishBtn.className = 'button is-primary is-small';
-  finishBtn.textContent = 'Finalizar';
-  finishBtn.addEventListener('click', () => finishMission(mission, li));
   const buttons = document.createElement('div');
   buttons.className = 'buttons';
   buttons.appendChild(showBtn);
-  buttons.appendChild(startBtn);
-  buttons.appendChild(finishBtn);
   li.appendChild(info);
   li.appendChild(buttons);
   return li;
@@ -232,73 +221,6 @@ async function loadMissions() {
     }
   });
 }
-
-function startMission(mission, element) {
-  if (!navigator.geolocation) {
-    element.append(' Precisa de localização.');
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(async (position) => {
-    try {
-      const payload = {
-        mission_id: mission.id,
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      };
-      const data = await window.apiFetch('mission_start.php', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      missionState[mission.id] = data.run_id;
-      element.dataset.runId = data.run_id;
-      element.append(` \u2714️ Missão iniciada (run #${data.run_id})`);
-      const handler = window.missionHandlers[mission.tipo];
-      if (handler && handler.onStart) {
-        handler.onStart(mission, data.run_id);
-      }
-      if (handler && handler.render) {
-        handler.render(mission, data.run_id);
-      } else if (workspaceRoot) {
-        missionWorkspace.show(mission, data.run_id, (container) => {
-          const paragraph = document.createElement('p');
-          paragraph.textContent = 'Missão iniciada. Use o botão "Finalizar" para concluir quando estiver pronto.';
-          container.appendChild(paragraph);
-        });
-      }
-    } catch (error) {
-      element.append(` \u274c ${error.message}`);
-    }
-  });
-}
-
-async function finishMission(mission, element) {
-  const runId = missionState[mission.id] || element.dataset.runId;
-  if (!runId) {
-    element.append(' Inicie a missão primeiro.');
-    return;
-  }
-  const handler = window.missionHandlers[mission.tipo];
-  let payload = { mission_id: mission.id, run_id: runId };
-  if (handler && handler.onFinish) {
-    try {
-      payload = Object.assign(payload, await handler.onFinish(mission, runId));
-    } catch (error) {
-      element.append(` ${error.message}`);
-      return;
-    }
-  }
-  try {
-    const data = await window.apiFetch('mission_finish.php', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    element.append(` Finalizada! (+ run ${data.run_id})`);
-    missionWorkspace.setStatus('Missão finalizada com sucesso.');
-  } catch (error) {
-    element.append(` ${error.message}`);
-    missionWorkspace.setStatus(error.message, true);
-  }
-} 
 
 if (missionTypeFilter) {
   missionTypeFilter.addEventListener('change', loadMissions);

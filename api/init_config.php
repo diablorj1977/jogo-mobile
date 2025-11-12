@@ -275,6 +275,60 @@ if (!defined('APP_ECOBOT_BASIC_ATTACK')) {
     ]);
 }
 
+if (!defined('APP_BASE_DROP_CHANCE')) {
+    define('APP_BASE_DROP_CHANCE', 0.2);
+}
+
+if (!defined('APP_DROP_RARITY_WEIGHTS')) {
+    define('APP_DROP_RARITY_WEIGHTS', [
+        'C' => 60,
+        'B' => 30,
+        'A' => 8,
+        'S' => 2,
+    ]);
+}
+
+if (!defined('APP_RARITY_SCALING')) {
+    define('APP_RARITY_SCALING', [
+        'C' => 1.0,
+        'B' => 1.15,
+        'A' => 1.35,
+        'S' => 1.6,
+    ]);
+}
+
+if (!defined('APP_MODULE_BONUS_DEFINITIONS')) {
+    define('APP_MODULE_BONUS_DEFINITIONS', [
+        'DROP_CHANCE' => [
+            'type' => 'drop',
+            'unit' => 'percent',
+            'label' => 'Bônus de drop',
+        ],
+        'XP_BONUS' => [
+            'type' => 'xp',
+            'unit' => 'percent',
+            'label' => 'Bônus de XP',
+        ],
+    ]);
+}
+
+if (!defined('APP_BATTLE_MODULE_ENERGY_COSTS')) {
+    define('APP_BATTLE_MODULE_ENERGY_COSTS', [
+        'HEAL' => 6,
+        'SHIELD' => 5,
+        'BUFF_ATK' => 5,
+        'BUFF_DEF' => 5,
+        'ENERGIZE' => 4,
+        'CLEANSE' => 3,
+        'DROP_CHANCE' => 4,
+        'XP_BONUS' => 4,
+    ]);
+}
+
+if (!defined('APP_ENEMY_LEVEL_RANGE')) {
+    define('APP_ENEMY_LEVEL_RANGE', 1);
+}
+
 if (!defined('APP_PITY_THRESHOLD')) {
     define('APP_PITY_THRESHOLD', 10);
 }
@@ -330,6 +384,12 @@ if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_NAME']) === 'init_con
         'ecobot_basic_attack' => APP_ECOBOT_BASIC_ATTACK,
         'osrm_url' => APP_OSRM_BASE_URL,
         'osrm_profile' => APP_OSRM_PROFILE,
+        'base_drop_chance' => APP_BASE_DROP_CHANCE,
+        'drop_rarity_weights' => APP_DROP_RARITY_WEIGHTS,
+        'module_bonus_definitions' => APP_MODULE_BONUS_DEFINITIONS,
+        'enemy_level_range' => APP_ENEMY_LEVEL_RANGE,
+        'rarity_scaling' => APP_RARITY_SCALING,
+        'module_energy_costs' => APP_BATTLE_MODULE_ENERGY_COSTS,
     ];
 
     $format = isset($_GET['format']) ? strtolower($_GET['format']) : 'json';

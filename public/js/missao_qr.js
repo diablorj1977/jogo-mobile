@@ -15,6 +15,25 @@ function toHtml(path) {
   return path;
 }
 
+function renderQrOutcome(container, data, fallbackMessage) {
+  if (!container) {
+    return;
+  }
+  const notice = document.createElement('div');
+  notice.className = 'notification is-success mission-outcome-message';
+  const parts = [fallbackMessage || 'Missão concluída!'];
+  if (data && typeof data.reward_xp === 'number') {
+    parts.push(`XP ${data.reward_xp}`);
+  }
+  const drop = data?.drop_reward?.awarded ? data.drop_reward.item : null;
+  if (drop) {
+    const quantity = drop.quantity ? ` x${drop.quantity}` : '';
+    parts.push(`Item: ${drop.name}${quantity}`);
+  }
+  notice.textContent = parts.join(' · ');
+  container.appendChild(notice);
+}
+
 function renderQrMission() {
   qrContainer.innerHTML = '';
   qrError.classList.add('is-hidden');
@@ -185,11 +204,8 @@ function finalizeQrMission() {
         run_id: qrRunId,
       }),
     })
-    .then(() => {
-      const success = document.createElement('div');
-      success.className = 'notification is-success mission-outcome-message';
-      success.textContent = 'Código confirmado! Missão concluída com sucesso.';
-      qrContainer.appendChild(success);
+    .then((data) => {
+      renderQrOutcome(qrContainer, data, 'Código confirmado! Missão concluída com sucesso.');
     })
     .catch((error) => {
       qrError.textContent = error.message;

@@ -1,0 +1,40 @@
+<!-- File: public/missao_foto.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecobots — Missão de Foto</title>
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <nav class="navbar is-light" role="navigation">
+    <div class="navbar-brand"><a class="navbar-item" href="home.html">Ecobots</a></div>
+    <div class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item" href="home.html">Mapa</a>
+        <a class="navbar-item is-active" href="#">Missão de foto</a>
+        <a class="navbar-item" href="missoes.html">Missões</a>
+        <a class="navbar-item" href="inventario.html">Inventário</a>
+        <a class="navbar-item" href="perfil.html">Perfil</a>
+      </div>
+      <div class="navbar-end">
+        <a class="navbar-item" href="#" id="logout-link">Sair</a>
+      </div>
+    </div>
+  </nav>
+  <section class="section">
+    <div class="container">
+      <div id="photo-container" class="mission-detail-card">
+        <progress class="progress is-small is-info" max="100">Carregando missão...</progress>
+      </div>
+      <div id="photo-error" class="notification is-danger is-hidden"></div>
+    </div>
+  </section>
+  <script src="../api/init_config.php?format=js"></script>
+  <script src="js/base_config.js"></script>
+  <script src="js/common_app.js"></script>
+  <script src="js/missao_foto.js"></script>
+</body>
+</html>

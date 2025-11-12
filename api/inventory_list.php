@@ -97,13 +97,14 @@ $ecobotStmt = $pdo->prepare('SELECT nickname, base_atk, base_def, base_speed, ba
 $ecobotStmt->execute(['user_id' => $auth['user_id']]);
 $ecobotRow = $ecobotStmt->fetch();
 
+$baselineStats = APP_ECOBOT_BASELINE_STATS;
 $baseStats = [
-    'hp' => $ecobotRow ? (int)$ecobotRow['hp_current'] : 0,
-    'atk' => $ecobotRow ? (int)$ecobotRow['base_atk'] : 0,
-    'def' => $ecobotRow ? (int)$ecobotRow['base_def'] : 0,
-    'speed' => $ecobotRow ? (int)$ecobotRow['base_speed'] : 0,
-    'focus' => $ecobotRow ? (int)$ecobotRow['base_focus'] : 0,
-    'energy' => $ecobotRow ? (int)$ecobotRow['energy_max'] : 0,
+    'hp' => ($baselineStats['hp'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['hp_current'] : 0),
+    'atk' => ($baselineStats['atk'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['base_atk'] : 0),
+    'def' => ($baselineStats['def'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['base_def'] : 0),
+    'speed' => ($baselineStats['speed'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['base_speed'] : 0),
+    'focus' => ($baselineStats['focus'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['base_focus'] : 0),
+    'energy' => ($baselineStats['energy'] ?? 0) + ($ecobotRow ? (int)$ecobotRow['energy_max'] : 0),
 ];
 
 $equipmentBonus = ['hp' => 0, 'atk' => 0, 'def' => 0, 'speed' => 0, 'focus' => 0, 'energy' => 0];
@@ -163,6 +164,8 @@ json_response([
     'equipped' => $equipped,
     'ecobot' => [
         'nickname' => $ecobotRow['nickname'] ?? null,
+        'baseline_stats' => APP_ECOBOT_BASELINE_STATS,
+        'basic_attack' => APP_ECOBOT_BASIC_ATTACK,
         'base_stats' => $baseStats,
         'equipment_bonus' => $equipmentBonus,
         'total_stats' => $totalStats,

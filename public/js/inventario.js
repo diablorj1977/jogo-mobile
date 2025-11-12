@@ -11,21 +11,14 @@ const defaultSlotConfig = {
 let slotConfig = Object.assign({}, defaultSlotConfig);
 
 function formatSlotLabel(slot) {
-  const labels = {
-    carcass: 'Carcaça',
-    wpn1: 'Arma 1',
-    wpn2: 'Arma 2',
-    mod1: 'Módulo 1',
-    mod2: 'Módulo 2',
-  };
-  if (labels[slot]) {
-    return labels[slot];
+  if (slot === 'carcass') {
+    return 'Carcaça';
   }
   if (/^wpn\d+$/i.test(slot)) {
-    return `Arma ${slot.replace(/[^0-9]/g, '')}`;
+    return `Slot de arma ${slot.replace(/[^0-9]/g, '')}`;
   }
   if (/^mod\d+$/i.test(slot)) {
-    return `Módulo ${slot.replace(/[^0-9]/g, '')}`;
+    return `Slot de módulo ${slot.replace(/[^0-9]/g, '')}`;
   }
   return slot.toUpperCase();
 }
@@ -82,6 +75,18 @@ function getSlotsForKind(kind) {
     return available.filter((slot) => slot.startsWith('mod'));
   }
   return available;
+}
+
+function getAvailableSlotsForItem(item, equippedSlotsMap) {
+  const baseSlots = getSlotsForKind(item.kind);
+  if (!baseSlots.length) {
+    return [];
+  }
+  const equippedMap = equippedSlotsMap || {};
+  return baseSlots.filter((slot) => {
+    const occupyingItemId = equippedMap[slot];
+    return !occupyingItemId || occupyingItemId === item.id;
+  });
 }
 
 function renderEcobotStats(ecobot) {
@@ -253,14 +258,14 @@ function renderInventory(items, equipped) {
       actions.appendChild(badge);
     }
 
-    const allowedSlots = getSlotsForKind(item.kind);
+    const slotOptions = getAvailableSlotsForItem(item, equipped || {});
     let slotSelector = null;
 
-    if (allowedSlots.length > 1) {
+    if (slotOptions.length) {
       const selectWrapper = document.createElement('div');
       selectWrapper.className = 'select is-small';
       const selectEl = document.createElement('select');
-      allowedSlots.forEach((slot) => {
+      slotOptions.forEach((slot) => {
         const option = document.createElement('option');
         option.value = slot;
         option.textContent = formatSlotLabel(slot);
@@ -269,34 +274,27 @@ function renderInventory(items, equipped) {
         }
         selectEl.appendChild(option);
       });
-      if (slotName && allowedSlots.includes(slotName)) {
+      if (slotName && slotOptions.includes(slotName)) {
         selectEl.value = slotName;
       }
       selectWrapper.appendChild(selectEl);
       actions.appendChild(selectWrapper);
       slotSelector = selectEl;
-    } else if (allowedSlots.length === 1) {
-      const singleSlot = allowedSlots[0];
-      const label = document.createElement('span');
-      label.className = 'tag is-light';
-      label.textContent = formatSlotLabel(singleSlot);
-      actions.appendChild(label);
-      slotSelector = { value: singleSlot };
     }
 
     const equipBtn = document.createElement('button');
     equipBtn.className = 'button is-small is-link';
     equipBtn.textContent = 'Equipar';
-    if (!allowedSlots.length) {
+    if (!slotOptions.length) {
       equipBtn.disabled = true;
       equipBtn.textContent = 'Sem slot disponível';
     }
     equipBtn.addEventListener('click', async () => {
-      if (!allowedSlots.length) {
+      if (!slotOptions.length) {
         return;
       }
-      const chosenSlot = slotSelector ? slotSelector.value : allowedSlots[0];
-      if (!chosenSlot || !allowedSlots.includes(chosenSlot)) {
+      const chosenSlot = slotSelector ? slotSelector.value : slotOptions[0];
+      if (!chosenSlot || !slotOptions.includes(chosenSlot)) {
         alert('Selecione um slot válido.');
         return;
       }

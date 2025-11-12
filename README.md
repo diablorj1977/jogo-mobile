@@ -44,7 +44,12 @@ Este repositório contém o MVP do Ecobots com backend em PHP 8 + MySQL 5.7 e fr
 3. A base oficial `base-de-dados.sql` já inclui todas as colunas necessárias (xp/level, down_until, provas de missão etc.).
    O arquivo `db/migrations/001_add_mvp_fields.sql` está presente apenas para documentação — não há `ALTER TABLE` adicionais.
 
-4. Suba o servidor local para testes (PHP embutido):
+4. (Opcional) Configure o serviço de rotas usado para traçar caminhos no mapa:
+   - `ECOBOTS_OSRM_URL` aponta para a instância OSRM (padrão público `https://router.project-osrm.org`).
+   - `ECOBOTS_OSRM_PROFILE` define o perfil (`foot`, `driving`, etc.); o padrão é `foot`.
+   Caso essas variáveis não sejam definidas, os botões de rota utilizam o endpoint público padrão.
+
+5. Suba o servidor local para testes (PHP embutido):
 
    ```bash
    php -S 0.0.0.0:8080 -t public
@@ -71,6 +76,19 @@ Todas as rotas autenticadas exigem header `Authorization: Bearer <token>`.
 
 O frontend utiliza Bulma puro, scripts JS por página e registra um service worker simples (`public/sw.js`) para cache básico offline.
 
+## Fluxo de missões no frontend
+
+- A partir do mapa (home) cada missão abre uma página dedicada (`missao.html`) que exibe ícone, imagem, descrição, pré-requisitos e status de geofence antes de habilitar o botão **Iniciar missão**.
+- Ao iniciar, o usuário é redirecionado automaticamente para uma tela especializada por tipo:
+  - `missao_batalha.html` — opções de ataque com armas/módulos equipados e log de turnos.
+  - `missao_foto.html` — mural, captura via câmera e envio para `mission_photo_upload.php` antes da conclusão.
+  - `missao_qr.html` — entrada manual ou leitura (quando suportada) usando a API `BarcodeDetector`, seguida da validação em `mission_qr_submit.php`.
+- `missao_corrida.html` — mapa com pontos inicial/final, rota sugerida via OSRM, acompanhamento de distância e finalização automática ao atingir o destino.
+- `missao_p2p.html` — checkpoints sequenciais com rota sugerida via OSRM e registro em `mission_p2p_touch.php`; a missão só termina após todos os pontos serem tocados na ordem correta.
+- Todas as telas exibem botões de retorno para o detalhe da missão e informam métricas (distância, tempo, velocidade média) quando a geolocalização está ativa.
+- Para dispositivos sem suporte a câmera/leitor, permanece disponível a digitação manual do QR e o envio tradicional de fotos.
+- Cada tela de missão oferece um botão de **Abortar missão**, que encerra a execução atual (status `CANCELLED`) e permite tentar novamente posteriormente.
+
 ## Pacote de ícones
 
 Os ícones padrão são SVGs embutidos (data URI) definidos em `api/init_config.php`; não há arquivos binários versionados. Para obter
@@ -90,4 +108,6 @@ curl -o mission_item_icons.zip "$APP_BASE_API/icons_package.php"
 - CORS liberado apenas para `https://negocio.tec.br` conforme especificação.
 - Timezone fixado em `America/Sao_Paulo` com `SET time_zone = '-03:00'` na conexão.
 - Ajuste dos minutos de recuperação do ecobot conforme tipo de missão em `APP_RECOVERY_MAP` dentro de `api/init_config.php`.
+- Os atributos base sem carcaça e o ataque padrão do Ecobot vêm de `APP_ECOBOT_BASELINE_STATS` e `APP_ECOBOT_BASIC_ATTACK` definidos em `api/init_config.php`; esses valores são somados aos números retornados em `inventory_list.php`.
+- Para experiência ideal nas missões geolocalizadas, habilite `navigator.geolocation` no navegador/dispositivo. Quando indisponível, os botões de início permanecem desabilitados e as telas de corrida/P2P exibem mensagens de aviso.
 

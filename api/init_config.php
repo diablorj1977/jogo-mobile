@@ -53,6 +53,24 @@ if (!defined('APP_HEADQUARTERS_URL')) {
     define('APP_HEADQUARTERS_URL', 'https://negocio.tec.br/eco/hq');
 }
 
+if (!defined('APP_OSRM_BASE_URL')) {
+    $osrmEnv = getenv('ECOBOTS_OSRM_URL');
+    $osrmValue = $osrmEnv !== false ? trim($osrmEnv) : '';
+    if ($osrmValue === '') {
+        $osrmValue = 'https://router.project-osrm.org';
+    }
+    define('APP_OSRM_BASE_URL', rtrim($osrmValue, '/'));
+}
+
+if (!defined('APP_OSRM_PROFILE')) {
+    $profileEnv = getenv('ECOBOTS_OSRM_PROFILE');
+    $profile = $profileEnv !== false ? trim($profileEnv) : '';
+    if ($profile === '') {
+        $profile = 'foot';
+    }
+    define('APP_OSRM_PROFILE', $profile);
+}
+
 if (!function_exists('ecobots_build_asset_url')) {
     function ecobots_build_asset_url($base, $path, $fallback)
     {
@@ -76,6 +94,10 @@ if (!function_exists('ecobots_build_asset_url')) {
 
 if (!defined('APP_MISSION_ICON_BASE')) {
     define('APP_MISSION_ICON_BASE', getenv('ECOBOTS_MISSION_ICON_BASE') ?: null);
+}
+
+if (!defined('APP_MISSION_IMAGE_BASE')) {
+    define('APP_MISSION_IMAGE_BASE', getenv('ECOBOTS_MISSION_IMAGE_BASE') ?: null);
 }
 
 if (!function_exists('ecobots_svg_to_data_uri')) {
@@ -139,6 +161,22 @@ if (!function_exists('ecobots_resolve_mission_icon')) {
         }
 
         return APP_MISSION_TYPE_ICONS[$typeKey] ?? APP_DEFAULT_MISSION_ICON;
+    }
+}
+
+if (!function_exists('ecobots_resolve_mission_image')) {
+    function ecobots_resolve_mission_image(?string $relativePath)
+    {
+        if (empty($relativePath)) {
+            return null;
+        }
+        if (preg_match('/^https?:\/\//i', $relativePath) || str_starts_with($relativePath, 'data:')) {
+            return $relativePath;
+        }
+        if (APP_MISSION_IMAGE_BASE) {
+            return rtrim(APP_MISSION_IMAGE_BASE, '/') . '/' . ltrim($relativePath, '/');
+        }
+        return APP_BASE_HTML . '/' . ltrim($relativePath, '/');
     }
 }
 
@@ -211,6 +249,32 @@ if (!function_exists('ecobots_resolve_item_icon')) {
     }
 }
 
+if (!defined('APP_ECOBOT_BASELINE_STATS')) {
+    define('APP_ECOBOT_BASELINE_STATS', [
+        'hp' => 100,
+        'atk' => 10,
+        'def' => 10,
+        'speed' => 10,
+        'focus' => 10,
+        'energy' => 10,
+    ]);
+}
+
+if (!defined('APP_ECOBOT_BASIC_ATTACK')) {
+    define('APP_ECOBOT_BASIC_ATTACK', [
+        'name' => 'Ataque básico',
+        'description' => 'Golpe padrão do Ecobot sem armas equipadas.',
+        'dmg_min' => 6,
+        'dmg_max' => 10,
+        'dmg_type' => 'KINETIC',
+        'energy_cost' => 0,
+        'accuracy' => 90,
+        'crit_bonus' => 0,
+        'status_code' => null,
+        'status_chance' => 0,
+    ]);
+}
+
 if (!defined('APP_PITY_THRESHOLD')) {
     define('APP_PITY_THRESHOLD', 10);
 }
@@ -262,6 +326,10 @@ if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_NAME']) === 'init_con
         'default_item_image' => APP_DEFAULT_ITEM_IMAGE,
         'item_icon_map' => APP_ITEM_ICON_DATA,
         'item_kind_icon_map' => APP_ITEM_KIND_ICON_DATA,
+        'ecobot_baseline_stats' => APP_ECOBOT_BASELINE_STATS,
+        'ecobot_basic_attack' => APP_ECOBOT_BASIC_ATTACK,
+        'osrm_url' => APP_OSRM_BASE_URL,
+        'osrm_profile' => APP_OSRM_PROFILE,
     ];
 
     $format = isset($_GET['format']) ? strtolower($_GET['format']) : 'json';

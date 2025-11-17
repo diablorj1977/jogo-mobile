@@ -6,6 +6,155 @@ require_once __DIR__ . '/core/geo.php';
 require_once __DIR__ . '/core/rules.php';
 require_once __DIR__ . '/init_config.php';
 
+function ecobots_calculate_equipped_module_bonuses(PDO $pdo, int $userId): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT inv.id AS inventory_id, it.name, it.rarity, it.module_kind, it.module_value'
+        . ' FROM equipped_items ei'
+        . ' INNER JOIN inventory inv ON inv.id = ei.inventory_id'
+        . ' INNER JOIN item_templates it ON it.id = inv.template_id'
+        . ' WHERE ei.user_id = :user_id AND ei.slot LIKE "mod%"'
+    );
+    $stmt->execute(['user_id' => $userId]);
+
+    $bonuses = [
+        'xp_percent' => 0.0,
+        'drop_percent' => 0.0,
+        'breakdown' => [],
+    ];
+
+    foreach ($stmt->fetchAll() as $row) {
+        $kindKey = strtoupper($row['module_kind'] ?? '');
+        if ($kindKey === '' || !isset(APP_MODULE_BONUS_DEFINITIONS[$kindKey])) {
+            continue;
+        }
+        $definition = APP_MODULE_BONUS_DEFINITIONS[$kindKey];
+        $rawValue = isset($row['module_value']) ? (int)$row['module_value'] : 0;
+        if ($rawValue <= 0) {
+            continue;
+        }
+        $rarity = $row['rarity'] ?? 'C';
+        $rarityMultiplier = APP_RARITY_SCALING[$rarity] ?? 1.0;
+        $effectivePercent = $rawValue * $rarityMultiplier;
+        if ($definition['type'] === 'xp') {
+            $bonuses['xp_percent'] += $effectivePercent;
+        } elseif ($definition['type'] === 'drop') {
+            $bonuses['drop_percent'] += $effectivePercent;
+        }
+        $bonuses['breakdown'][] = [
+            'inventory_id' => (int)$row['inventory_id'],
+            'name' => $row['name'],
+            'type' => $definition['type'],
+            'raw_percent' => $rawValue,
+            'effective_percent' => $effectivePercent,
+        ];
+    }
+
+    return $bonuses;
+}
+
+function ecobots_try_generate_drop(PDO $pdo, int $userId, float $dropChance, int $playerLevel): ?array
+{
+    $dropChance = max(0.0, min(1.0, $dropChance));
+    if ($dropChance <= 0) {
+        return null;
+    }
+
+    $roll = mt_rand() / mt_getrandmax();
+    if ($roll > $dropChance) {
+        return null;
+    }
+
+    $levelRange = max(0, (int)APP_ENEMY_LEVEL_RANGE);
+    $minLevel = max(1, $playerLevel - $levelRange);
+    $maxLevel = max($minLevel, $playerLevel + $levelRange);
+
+    $candidateStmt = $pdo->prepare(
+        'SELECT id, kind, code, name, rarity, min_level, stackable, image_path, active'
+        . ' FROM item_templates'
+        . ' WHERE active = 1 AND (min_level IS NULL OR (min_level BETWEEN :min_level AND :max_level))'
+    );
+    $candidateStmt->execute([
+        'min_level' => $minLevel,
+        'max_level' => $maxLevel,
+    ]);
+    $candidates = $candidateStmt->fetchAll();
+
+    if (!$candidates) {
+        $fallbackStmt = $pdo->query('SELECT id, kind, code, name, rarity, min_level, stackable, image_path FROM item_templates WHERE active = 1');
+        $candidates = $fallbackStmt->fetchAll();
+        if (!$candidates) {
+            return null;
+        }
+    }
+
+    $weighted = [];
+    $totalWeight = 0;
+    foreach ($candidates as $row) {
+        $rarity = $row['rarity'] ?? 'C';
+        $weight = APP_DROP_RARITY_WEIGHTS[$rarity] ?? 1;
+        if ($weight <= 0) {
+            $weight = 1;
+        }
+        $totalWeight += $weight;
+        $weighted[] = [$row, $weight];
+    }
+
+    if ($totalWeight <= 0) {
+        return null;
+    }
+
+    $threshold = mt_rand(1, $totalWeight);
+    $chosen = null;
+    foreach ($weighted as [$row, $weight]) {
+        $threshold -= $weight;
+        if ($threshold <= 0) {
+            $chosen = $row;
+            break;
+        }
+    }
+    if (!$chosen) {
+        $chosen = $weighted[count($weighted) - 1][0];
+    }
+
+    $templateId = (int)$chosen['id'];
+    $stackable = !empty($chosen['stackable']);
+    $inventoryId = null;
+    $quantity = 1;
+
+    if ($stackable) {
+        $existingStmt = $pdo->prepare('SELECT id, qty FROM inventory WHERE user_id = :user_id AND template_id = :template_id LIMIT 1');
+        $existingStmt->execute([
+            'user_id' => $userId,
+            'template_id' => $templateId,
+        ]);
+        if ($existing = $existingStmt->fetch()) {
+            $inventoryId = (int)$existing['id'];
+            $quantity = (int)$existing['qty'] + 1;
+            $pdo->prepare('UPDATE inventory SET qty = qty + 1 WHERE id = :id')->execute(['id' => $inventoryId]);
+        }
+    }
+
+    if ($inventoryId === null) {
+        $insertStmt = $pdo->prepare('INSERT INTO inventory (user_id, template_id, qty) VALUES (:user_id, :template_id, 1)');
+        $insertStmt->execute([
+            'user_id' => $userId,
+            'template_id' => $templateId,
+        ]);
+        $inventoryId = (int)$pdo->lastInsertId();
+    }
+
+    return [
+        'inventory_id' => $inventoryId,
+        'template_id' => $templateId,
+        'name' => $chosen['name'],
+        'kind' => $chosen['kind'],
+        'rarity' => $chosen['rarity'],
+        'quantity' => $quantity,
+        'image_url' => ecobots_resolve_item_icon($chosen['code'] ?? null, $chosen['kind'] ?? null, $chosen['image_path'] ?? null),
+    ];
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     error_response('Method not allowed', 405);
 }
@@ -90,15 +239,20 @@ switch ($tipo) {
         break;
 }
 
+$moduleBonuses = ecobots_calculate_equipped_module_bonuses($pdo, $auth['user_id']);
+$xpMultiplier = 1 + ($moduleBonuses['xp_percent'] / 100);
+$finalRewardXp = (int)round((int)$run['reward_xp'] * max(1.0, $xpMultiplier));
+$dropChance = APP_BASE_DROP_CHANCE + ($moduleBonuses['drop_percent'] / 100);
+
 $updates[] = 'status = "FINISHED"';
 $updates[] = 'finished_at = NOW()';
 $updates[] = 'reward_xp = :reward_xp';
-$params['reward_xp'] = (int)$run['reward_xp'];
+$params['reward_xp'] = $finalRewardXp;
 
 $sql = 'UPDATE mission_runs SET ' . implode(', ', $updates) . ' WHERE id = :run_id';
 $pdo->prepare($sql)->execute($params);
 
-$reward = (int)$run['reward_xp'];
+$reward = $finalRewardXp;
 if ($reward > 0) {
     $pdo->prepare('UPDATE users SET xp = xp + :xp WHERE id = :user_id')
         ->execute([
@@ -134,10 +288,20 @@ if ($ecobot && !empty($ecobot['down_until'])) {
         ]);
 }
 
+$dropReward = ecobots_try_generate_drop($pdo, $auth['user_id'], $dropChance, (int)$auth['level']);
+
 json_response([
     'run_id' => $runId,
     'mission_id' => $missionId,
     'status' => 'FINISHED',
+    'reward_xp' => $reward,
+    'xp_bonus_percent' => $moduleBonuses['xp_percent'],
+    'drop_chance_applied' => $dropChance,
+    'drop_reward' => [
+        'awarded' => $dropReward !== null,
+        'item' => $dropReward,
+    ],
+    'module_bonus_breakdown' => $moduleBonuses['breakdown'],
 ]);
 
 ?>

@@ -15,6 +15,25 @@ function toHtml(path) {
   return path;
 }
 
+function renderMissionOutcome(container, data, fallbackMessage) {
+  if (!container) {
+    return;
+  }
+  const notice = document.createElement('div');
+  notice.className = 'notification is-success mission-outcome-message';
+  const parts = [fallbackMessage || 'Missão concluída!'];
+  if (data && typeof data.reward_xp === 'number') {
+    parts.push(`XP ${data.reward_xp}`);
+  }
+  const drop = data?.drop_reward?.awarded ? data.drop_reward.item : null;
+  if (drop) {
+    const quantity = drop.quantity ? ` x${drop.quantity}` : '';
+    parts.push(`Item: ${drop.name}${quantity}`);
+  }
+  notice.textContent = parts.join(' · ');
+  container.appendChild(notice);
+}
+
 function renderMural(mural) {
   const grid = document.createElement('div');
   grid.className = 'photo-mural';
@@ -171,10 +190,11 @@ function finalizePhotoMission(button) {
         run_id: photoRunId,
       }),
     })
-    .then(() => {
+    .then((data) => {
       button.classList.remove('is-loading');
       button.textContent = 'Missão concluída!';
       button.classList.add('is-static');
+      renderMissionOutcome(photoContainer, data, 'Missão concluída! Obrigado pela foto.');
     })
     .catch((error) => {
       photoError.textContent = error.message;

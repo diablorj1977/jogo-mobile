@@ -25,6 +25,25 @@ function toHtml(path) {
   return path;
 }
 
+function renderP2pOutcome(container, data, fallbackMessage) {
+  if (!container) {
+    return;
+  }
+  const notice = document.createElement('div');
+  notice.className = 'notification is-success mission-outcome-message';
+  const parts = [fallbackMessage || 'Missão concluída!'];
+  if (data && typeof data.reward_xp === 'number') {
+    parts.push(`XP ${data.reward_xp}`);
+  }
+  const drop = data?.drop_reward?.awarded ? data.drop_reward.item : null;
+  if (drop) {
+    const quantity = drop.quantity ? ` x${drop.quantity}` : '';
+    parts.push(`Item: ${drop.name}${quantity}`);
+  }
+  notice.textContent = parts.join(' · ');
+  container.appendChild(notice);
+}
+
 function haversineDistance(aLat, aLng, bLat, bLng) {
   const R = 6371000;
   const toRad = (value) => (value * Math.PI) / 180;
@@ -317,11 +336,8 @@ function finalizeP2p(endLat, endLng) {
         dist_m: travelledMeters,
       }),
     })
-    .then(() => {
-      const success = document.createElement('div');
-      success.className = 'notification is-success mission-outcome-message';
-      success.textContent = 'Todos os pontos concluídos! Missão finalizada com sucesso.';
-      p2pContainer.appendChild(success);
+    .then((data) => {
+      renderP2pOutcome(p2pContainer, data, 'Todos os pontos concluídos! Missão finalizada com sucesso.');
     })
     .catch((error) => {
       p2pError.textContent = error.message;

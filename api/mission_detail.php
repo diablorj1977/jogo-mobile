@@ -6,6 +6,148 @@ require_once __DIR__ . '/core/geo.php';
 require_once __DIR__ . '/core/rules.php';
 require_once __DIR__ . '/init_config.php';
 
+function ecobots_select_random_template(PDO $pdo, string $kind, int $minLevel, int $maxLevel): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, code, name, rarity, min_level, base_hp, base_atk, base_def, base_speed, base_focus, energy_max,'
+        . ' weapon_slots, module_slots, image_path'
+        . ' FROM item_templates'
+        . ' WHERE kind = :kind AND active = 1 AND (min_level IS NULL OR (min_level BETWEEN :min AND :max))'
+    );
+    $stmt->execute([
+        'kind' => $kind,
+        'min' => $minLevel,
+        'max' => $maxLevel,
+    ]);
+    $candidates = $stmt->fetchAll();
+    if (!$candidates) {
+        $fallback = $pdo->prepare('SELECT id, code, name, rarity, min_level, base_hp, base_atk, base_def, base_speed, base_focus, energy_max, weapon_slots, module_slots, image_path FROM item_templates WHERE kind = :kind AND active = 1');
+        $fallback->execute(['kind' => $kind]);
+        $candidates = $fallback->fetchAll();
+        if (!$candidates) {
+            return null;
+        }
+    }
+    $index = random_int(0, count($candidates) - 1);
+    return $candidates[$index];
+}
+
+function ecobots_select_random_weapons(PDO $pdo, int $count, int $minLevel, int $maxLevel): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, code, name, rarity, dmg_min, dmg_max, dmg_type, accuracy, energy_cost'
+        . ' FROM item_templates'
+        . ' WHERE kind = "WEAPON" AND active = 1 AND (min_level IS NULL OR (min_level BETWEEN :min AND :max))'
+    );
+    $stmt->execute([
+        'min' => $minLevel,
+        'max' => $maxLevel,
+    ]);
+    $rows = $stmt->fetchAll();
+    if (!$rows) {
+        return [];
+    }
+    shuffle($rows);
+    return array_slice($rows, 0, max(1, $count));
+}
+
+function ecobots_select_random_modules(PDO $pdo, int $count, int $minLevel, int $maxLevel): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, code, name, rarity, module_kind, module_value, module_duration'
+        . ' FROM item_templates'
+        . ' WHERE kind = "MODULE" AND active = 1 AND (min_level IS NULL OR (min_level BETWEEN :min AND :max))'
+    );
+    $stmt->execute([
+        'min' => $minLevel,
+        'max' => $maxLevel,
+    ]);
+    $rows = $stmt->fetchAll();
+    if (!$rows) {
+        return [];
+    }
+    shuffle($rows);
+    return array_slice($rows, 0, $count);
+}
+
+function ecobots_generate_battle_state(PDO $pdo, array $mission, array $auth, int $runId): array
+{
+    $playerLevel = (int)($auth['level'] ?? 1);
+    $levelRange = max(0, (int)APP_ENEMY_LEVEL_RANGE);
+    $minLevel = max(1, $playerLevel - $levelRange);
+    $maxLevel = max($minLevel, $playerLevel + $levelRange);
+
+    $carcass = ecobots_select_random_template($pdo, 'CARCASS', $minLevel, $maxLevel);
+    $enemyName = $carcass['name'] ?? ('Inimigo ' . $mission['code']);
+    $enemyLevel = $carcass['min_level'] !== null ? (int)$carcass['min_level'] : $playerLevel;
+    $baseHp = ($carcass['base_hp'] ?? 0) > 0 ? (int)$carcass['base_hp'] : (APP_ECOBOT_BASELINE_STATS['hp'] ?? 120);
+
+    $weaponSlots = $carcass['weapon_slots'] !== null ? (int)$carcass['weapon_slots'] : 1;
+    $moduleSlots = $carcass['module_slots'] !== null ? (int)$carcass['module_slots'] : 0;
+    $weapons = ecobots_select_random_weapons($pdo, max(1, $weaponSlots), $minLevel, $maxLevel);
+    $modules = $moduleSlots > 0 ? ecobots_select_random_modules($pdo, $moduleSlots, $minLevel, $maxLevel) : [];
+
+    $moves = [];
+    foreach ($weapons as $weapon) {
+        $moves[] = [
+            'name' => $weapon['name'],
+            'dmg_min' => $weapon['dmg_min'] !== null ? (int)$weapon['dmg_min'] : 6,
+            'dmg_max' => $weapon['dmg_max'] !== null ? (int)$weapon['dmg_max'] : 12,
+            'dmg_type' => $weapon['dmg_type'] ?? 'KINETIC',
+            'accuracy' => $weapon['accuracy'] !== null ? (int)$weapon['accuracy'] : 85,
+            'weight' => 1,
+            'energy_cost' => $weapon['energy_cost'] !== null ? (int)$weapon['energy_cost'] : 0,
+        ];
+    }
+    if (!$moves) {
+        $moves[] = [
+            'name' => 'Investida',
+            'dmg_min' => 6,
+            'dmg_max' => 12,
+            'dmg_type' => 'KINETIC',
+            'accuracy' => 85,
+            'weight' => 1,
+            'energy_cost' => 0,
+        ];
+    }
+
+    $state = [
+        'enemy' => [
+            'name' => $enemyName,
+            'level' => $enemyLevel,
+            'hp_max' => $baseHp,
+            'hp' => $baseHp,
+            'moves' => $moves,
+            'reward_xp' => (int)$mission['reward_xp'],
+            'loadout' => [
+                'carcass' => $carcass,
+                'weapons' => $weapons,
+                'modules' => $modules,
+            ],
+        ],
+        'player' => [
+            'name' => $auth['nickname'] ?? 'Ecobot',
+            'level' => (int)($auth['level'] ?? 1),
+            'hp_max' => APP_ECOBOT_BASELINE_STATS['hp'] ?? 100,
+            'hp' => APP_ECOBOT_BASELINE_STATS['hp'] ?? 100,
+        ],
+        'turn' => 0,
+        'log' => [],
+    ];
+
+    $pdo->prepare(
+        'INSERT INTO battles (user_id, source, source_id, mission_run_id, who, turn, status, state_json)'
+        . ' VALUES (:user_id, "MISSION", :source_id, :run_id, "PLAYER", 1, "ACTIVE", :state_json)'
+    )->execute([
+        'user_id' => $auth['user_id'],
+        'source_id' => $mission['id'],
+        'run_id' => $runId,
+        'state_json' => json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+
+    return $state;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     error_response('Method not allowed', 405);
 }
@@ -188,6 +330,31 @@ if (strtoupper($mission['tipo']) === 'BATALHA') {
 
             $playerState = $state['player'] ?? [];
 
+            $loadoutNames = [
+                'carcass' => null,
+                'weapons' => [],
+                'modules' => [],
+            ];
+            if (!empty($enemy['loadout']) && is_array($enemy['loadout'])) {
+                if (!empty($enemy['loadout']['carcass']['name'])) {
+                    $loadoutNames['carcass'] = $enemy['loadout']['carcass']['name'];
+                }
+                if (!empty($enemy['loadout']['weapons']) && is_array($enemy['loadout']['weapons'])) {
+                    foreach ($enemy['loadout']['weapons'] as $weapon) {
+                        if (is_array($weapon) && !empty($weapon['name'])) {
+                            $loadoutNames['weapons'][] = $weapon['name'];
+                        }
+                    }
+                }
+                if (!empty($enemy['loadout']['modules']) && is_array($enemy['loadout']['modules'])) {
+                    foreach ($enemy['loadout']['modules'] as $module) {
+                        if (is_array($module) && !empty($module['name'])) {
+                            $loadoutNames['modules'][] = $module['name'];
+                        }
+                    }
+                }
+            }
+
             $typeData['battle'] = [
                 'enemy' => [
                     'name' => $enemy['name'] ?? null,
@@ -203,8 +370,67 @@ if (strtoupper($mission['tipo']) === 'BATALHA') {
                     'hp_max' => isset($playerState['hp_max']) ? (int)$playerState['hp_max'] : null,
                     'hp_current' => isset($playerState['hp']) ? (int)$playerState['hp'] : null,
                 ],
+                'loadout' => $loadoutNames,
             ];
         }
+    } elseif ($runId) {
+        $generatedState = ecobots_generate_battle_state($pdo, $missionData, $auth, $runId);
+        $enemy = $generatedState['enemy'] ?? [];
+        $enemyMoves = [];
+        if (!empty($enemy['moves']) && is_array($enemy['moves'])) {
+            foreach ($enemy['moves'] as $move) {
+                $enemyMoves[] = [
+                    'name' => $move['name'] ?? 'Ataque',
+                    'dmg_min' => isset($move['dmg_min']) ? (int)$move['dmg_min'] : 0,
+                    'dmg_max' => isset($move['dmg_max']) ? (int)$move['dmg_max'] : 0,
+                    'dmg_type' => $move['dmg_type'] ?? null,
+                    'accuracy' => isset($move['accuracy']) ? (int)$move['accuracy'] : 85,
+                    'weight' => isset($move['weight']) ? (int)$move['weight'] : 1,
+                ];
+            }
+        }
+        $loadoutNames = [
+            'carcass' => null,
+            'weapons' => [],
+            'modules' => [],
+        ];
+        if (!empty($enemy['loadout']) && is_array($enemy['loadout'])) {
+            if (!empty($enemy['loadout']['carcass']['name'])) {
+                $loadoutNames['carcass'] = $enemy['loadout']['carcass']['name'];
+            }
+            if (!empty($enemy['loadout']['weapons']) && is_array($enemy['loadout']['weapons'])) {
+                foreach ($enemy['loadout']['weapons'] as $weapon) {
+                    if (is_array($weapon) && !empty($weapon['name'])) {
+                        $loadoutNames['weapons'][] = $weapon['name'];
+                    }
+                }
+            }
+            if (!empty($enemy['loadout']['modules']) && is_array($enemy['loadout']['modules'])) {
+                foreach ($enemy['loadout']['modules'] as $module) {
+                    if (is_array($module) && !empty($module['name'])) {
+                        $loadoutNames['modules'][] = $module['name'];
+                    }
+                }
+            }
+        }
+
+        $typeData['battle'] = [
+            'enemy' => [
+                'name' => $enemy['name'] ?? null,
+                'level' => isset($enemy['level']) ? (int)$enemy['level'] : null,
+                'hp_max' => isset($enemy['hp_max']) ? (int)$enemy['hp_max'] : null,
+                'hp_current' => isset($enemy['hp']) ? (int)$enemy['hp'] : null,
+                'moves' => $enemyMoves,
+                'reward_xp' => isset($enemy['reward_xp']) ? (int)$enemy['reward_xp'] : null,
+            ],
+            'player' => [
+                'name' => $generatedState['player']['name'] ?? null,
+                'level' => isset($generatedState['player']['level']) ? (int)$generatedState['player']['level'] : null,
+                'hp_max' => isset($generatedState['player']['hp_max']) ? (int)$generatedState['player']['hp_max'] : null,
+                'hp_current' => isset($generatedState['player']['hp']) ? (int)$generatedState['player']['hp'] : null,
+            ],
+            'loadout' => $loadoutNames,
+        ];
     }
 }
 
